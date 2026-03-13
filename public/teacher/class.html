@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 수업 진행</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    /* 수업 진행 화면 전용 레이아웃 */
+    body { overflow: hidden; }
+
+    .class-layout {
+      display: grid;
+      grid-template-columns: 200px 1fr 280px;
+      grid-template-rows: 56px 1fr;
+      height: 100vh;
+      transition: grid-template-columns .25s ease;
+    }
+
+    /* 탑바 */
+    .class-topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: var(--gap-md);
+      padding: 0 var(--gap-md);
+      border-bottom: 1px solid var(--border);
+      background: var(--background);
+    }
+
+    .class-topbar-logo { font-size: 18px; font-weight: 700; }
+    .class-topbar-logo span { color: var(--primary); }
+
+    .topbar-actions { display: flex; gap: var(--gap-xs); margin-left: var(--gap-sm); }
+
+    /* 사이드바 */
+    .class-sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      padding: var(--gap-md) 0;
+      overflow-y: auto;
+    }
+    .class-layout.sidebar-collapsed {
+      grid-template-columns: 0 1fr 280px;
+    }
+
+    /* 교실 레이아웃 영역 */
+    .classroom-area {
+      position: relative;
+      flex: 1;
+      overflow: auto;
+      background: #fafafa;
+      padding: var(--gap-md);
+    }
+
+    .classroom-canvas {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background-image:
+        linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+        linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    /* 책상 */
+    .desk {
+      position: absolute;
+      width: 100px;
+      height: 80px;
+      border-radius: var(--radius-md);
+      border: 2px solid rgba(0,0,0,.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      transition: box-shadow .15s;
+      user-select: none;
+      touch-action: none;
+      background: var(--color-none);
+      color: #fff;
+      cursor: default !important;
+      gap: 2px;
+    }
+    .desk:hover { box-shadow: var(--shadow-md); z-index: 10; }
+    .classroom-canvas.edit-mode .desk { cursor: grab !important; }
+    .desk .desk-emoji { font-size: 20px; line-height: 1; }
+    .desk .desk-status { font-size: 11px; font-weight: 600; line-height: 1; margin-top: 2px; }
+    .desk .desk-name { font-size: 16px; font-weight: 700; text-align: center; line-height: 1.2; word-break: keep-all; }
+    .desk.empty {
+      background: var(--border);
+      color: var(--text-sub);
+      border-style: dashed;
+      font-size: 10px;
+    }
+    .desk.offline { opacity: .6; }
+    .desk.help-needed { outline: 3px solid #F97316; outline-offset: 2px; animation: help-pulse 1s ease-in-out infinite; }
+    @keyframes help-pulse {
+      0%, 100% { outline-color: #F97316; }
+      50% { outline-color: #FED7AA; }
+    }
+    .desk .desk-help-badge {
+      position: absolute;
+      top: -8px; right: -8px;
+      font-size: 16px;
+      line-height: 1;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.4));
+    }
+
+    /* 색상 범례 */
+    .legend {
+      display: flex;
+      gap: var(--gap-sm);
+      padding: var(--gap-sm) var(--gap-md);
+      background: var(--background);
+      border-top: 1px solid var(--border);
+      font-size: var(--font-caption);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    /* 아래 패널(범례) 위쪽 리사이즈 핸들 — legend 바깥 flex 형제 */
+    .legend-resize {
+      height: 8px;
+      flex-shrink: 0;
+      cursor: ns-resize;
+      background: transparent;
+      position: relative;
+    }
+    .legend-resize::before {
+      content: '';
+      position: absolute;
+      top: 3px; left: 0;
+      width: 100%; height: 2px;
+      background: var(--primary);
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .legend-resize:hover::before,
+    .legend-resize.active::before { opacity: 1; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* 우측 패널 */
+    .right-panel {
+      border-left: 1px solid var(--border);
+      background: var(--background);
+      display: flex;
+      flex-direction: column;
+      overflow: visible;
+      position: relative;
+    }
+
+    /* 우측 패널 좌측 리사이즈 핸들 */
+    .right-panel-resize {
+      position: absolute;
+      top: 0; left: 0;
+      width: 6px; height: 100%;
+      cursor: ew-resize;
+      z-index: 30;
+    }
+    .right-panel-resize::before {
+      content: '';
+      position: absolute;
+      left: 2px; top: 0;
+      width: 2px; height: 100%;
+      background: var(--primary);
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .right-panel-resize:hover::before,
+    .right-panel-resize.active::before { opacity: 1; }
+
+    .panel-section {
+      padding: var(--gap-sm) var(--gap-md);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-section-title {
+      font-size: var(--font-caption);
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: var(--gap-sm);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    /* 현황 통계 */
+    .stat-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      margin-bottom: 4px;
+      font-size: var(--font-caption);
+    }
+    .stat-bar-fill {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .stat-bar-inner { height: 100%; border-radius: 999px; }
+    .stat-label { white-space: nowrap; flex-shrink: 0; }
+    .stat-count { width: 36px; text-align: right; font-weight: 600; }
+    .stat-pct   { width: 36px; text-align: right; color: var(--text-sub); }
+
+    /* 질문 목록 */
+    .question-item {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      font-size: var(--font-caption);
+      margin-bottom: 4px;
+      display: flex;
+      gap: 4px;
+      align-items: flex-start;
+    }
+    .question-text { flex: 1; }
+    .question-check {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-sub);
+      padding: 0;
+    }
+    .question-check:hover { color: var(--primary); }
+
+    /* 도움 요청 */
+    .help-item {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      padding: 4px 0;
+      font-size: var(--font-caption);
+    }
+    .help-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .help-name { flex: 1; font-weight: 600; }
+    .help-done-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px 6px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .help-done-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* 접속 현황 */
+    .connected-count {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* 학생 프로필 팝업 */
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap-sm);
+      font-size: var(--font-caption);
+    }
+    .profile-item label { color: var(--text-sub); display: block; }
+    .achievement-bar {
+      height: 10px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .achievement-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+    }
+    .feedback-history {
+      font-size: 20px;
+      letter-spacing: 2px;
+    }
+
+
+    /* 확대/축소 배지 */
+    .zoom-badge {
+      font-size: 12px;
+      color: var(--text-sub);
+      min-width: 38px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 공지 모달 */
+    .link-input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--gap-sm);
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="class-layout">
+    <!-- 탑바 -->
+    <header class="class-topbar">
+      <button class="btn-hamburger" onclick="toggleSidebar()" title="메뉴 접기/펼치기">☰</button>
+      <a href="/teacher/dashboard.html" class="class-topbar-logo">Class<span>On</span></a>
+      <span class="text-sub" id="classCourseName" style="font-size:13px"></span>
+      <span id="connectedBadge" class="badge badge-blue" style="margin-left:4px"></span>
+
+      <div class="topbar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="fitToContent()" title="책상 배치에 맞게 자동 맞춤 (Ctrl+0)">⊡ 자동맞춤</button>
+        <span class="zoom-badge" id="zoomBadge">100%</span>
+        <button class="btn btn-secondary btn-sm" onclick="Modal.open('noticeModal')">📣 공지</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleLock()" id="lockBtn">🔓 수정모드</button>
+        <button class="btn btn-secondary btn-sm" onclick="Modal.open('buttonSetModal')">🎛️ 버튼설정 <span id="activeButtonSetName" style="font-weight:600;color:var(--primary)"></span></button>
+        <button class="btn btn-secondary btn-sm" onclick="confirmClearAll()" style="border-color:#94a3b8;color:#64748b">🗑️ 전체초기화</button>
+        <a href="/teacher/dashboard.html" class="btn btn-secondary btn-sm">← 나가기</a>
+      </div>
+    </header>
+
+    <!-- 사이드바 -->
+    <nav class="sidebar class-sidebar">
+      <div class="sidebar-nav">
+        <a href="/teacher/dashboard.html" class="sidebar-item">📋 과정 관리</a>
+        <a href="/teacher/class.html"     class="sidebar-item active">🖥️ 수업 진행</a>
+        <a href="/teacher/students.html"  class="sidebar-item">👥 학생 관리</a>
+        <a href="/teacher/quiz.html"      class="sidebar-item">📝 퀴즈</a>
+        <a href="/teacher/questions.html" class="sidebar-item">📚 문제 은행</a>
+        <a href="/teacher/teams.html"     class="sidebar-item">🏃 팀 편성</a>
+        <a href="/teacher/settings.html"  class="sidebar-item">⚙️ 설정</a>
+      </div>
+    </nav>
+
+    <!-- 교실 영역 -->
+    <div style="display:flex; flex-direction:column; overflow:hidden;">
+      <div class="classroom-area" id="classroomArea">
+        <div class="classroom-canvas" id="classroomCanvas">
+          <!-- 책상들이 여기에 동적으로 추가됨 -->
+        </div>
+      </div>
+      <!-- 아래 패널 리사이즈 핸들 (legend 바깥 — innerHTML 교체에 영향 없음) -->
+      <div class="legend-resize" id="legendResize"></div>
+      <!-- 범례 -->
+      <div class="legend" id="buttonLegend">
+        <div class="legend-item"><div class="legend-dot" style="background:#94A3B8"></div> 미응답</div>
+      </div>
+    </div>
+
+    <!-- 우측 패널 -->
+    <aside class="right-panel">
+      <div class="right-panel-resize" id="rightPanelResize"></div>
+      <!-- 접속 현황 -->
+      <div class="panel-section">
+        <div class="panel-section-title">접속 현황</div>
+        <div class="connected-count" id="connectedCount">0</div>
+        <div class="text-sub" style="font-size:12px" id="totalCount">/ 0명 등록</div>
+      </div>
+
+      <!-- 피드백 통계 -->
+      <div class="panel-section">
+        <div class="panel-section-title">📊 피드백 현황</div>
+        <div id="statsContainer">
+          <div class="text-sub" style="font-size:12px">피드백 없음</div>
+        </div>
+      </div>
+
+      <!-- 익명 질문 -->
+      <div class="panel-section" style="flex:1; overflow-y:auto">
+        <div class="panel-section-title" style="display:flex;justify-content:space-between">
+          ✋ 질문 <span id="questionCount" class="badge badge-blue" style="font-size:10px">0</span>
+        </div>
+        <div id="questionsContainer">
+          <div class="text-sub" style="font-size:12px">없음</div>
+        </div>
+      </div>
+
+      <!-- 도움 요청 -->
+      <div class="panel-section" style="max-height:180px; overflow-y:auto">
+        <div class="panel-section-title">🙋 도움 요청</div>
+        <div id="helpContainer">
+          <div class="text-sub" style="font-size:12px">없음</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 공지 모달 -->
+  <div class="modal-overlay" id="noticeModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">📣 전체 공지</div>
+        <button class="modal-close" onclick="Modal.close('noticeModal')">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--gap-md)">
+        <div class="form-group">
+          <label class="form-label">공지 내용</label>
+          <textarea id="noticeText" class="textarea" placeholder="학생들에게 보낼 공지 내용"></textarea>
+        </div>
+        <div id="linksContainer"></div>
+        <button class="btn btn-secondary btn-sm" onclick="addLinkRow()">🔗 링크 추가</button>
+        <div class="flex gap-sm" style="justify-content:flex-end">
+          <button class="btn btn-secondary" onclick="Modal.close('noticeModal')">취소</button>
+          <button class="btn btn-primary" onclick="sendNotice()">전송</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 버튼 세트 선택 모달 -->
+  <div class="modal-overlay" id="buttonSetModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">🎛️ 피드백 버튼 세트</div>
+        <button class="modal-close" onclick="Modal.close('buttonSetModal')">✕</button>
+      </div>
+      <div id="buttonSetList" style="display:flex;flex-direction:column;gap:var(--gap-sm)"></div>
+      <div style="margin-top:var(--gap-md);text-align:right">
+        <button class="btn btn-secondary" onclick="Modal.close('buttonSetModal')">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    // ─── 상태 ────────────────────────────────────────────────
+    let courseId = getCurrentCourseId();
+    let enrollments = [];          // 전체 수강생
+    let feedbackState = {};        // { enrollmentId: { color, emoji, label } }
+    let connectedSet = new Set();  // 접속 중인 enrollmentId
+    let currentLayout = null;      // 현재 레이아웃
+    let isLocked = true;           // 고정모드 여부
+    let activeButtonSet = null;    // 현재 버튼 세트
+    let helpSet = new Set();       // 도움 요청 중인 enrollmentId
+    let isDragging = false;        // 드래그 진행 중 여부
+    let zoomLevel = 1.0;           // 캔버스 확대/축소 배율
+
+    // ─── 초기화 ──────────────────────────────────────────────
+    async function init() {
+      if (!courseId) {
+        Toast.warning('수업할 과정을 먼저 선택해주세요.');
+        setTimeout(() => window.location.href = '/teacher/dashboard.html', 1500);
+        return;
+      }
+
+      // 과정 정보 표시
+      const res = await API.get(`/api/courses/${courseId}`);
+      if (res && res.success) {
+        document.getElementById('classCourseName').textContent =
+          `${res.data.name} ${res.data.cohort}`;
+      }
+
+      // 수강생 로드
+      await loadEnrollments();
+
+      // 기본 레이아웃 자동 생성 또는 불러오기
+      await loadOrCreateLayout();
+
+      // 버튼 세트 로드
+      await loadButtonSets();
+
+      // 피드백 현황 로드
+      await loadFeedbackStats();
+      await loadQuestions();
+      await loadHelpRequests();
+
+      // Socket 연결 (핸들러 먼저 등록 후 teacher 등록)
+      SocketClient.connect();
+      setupSocketHandlers();
+      SocketClient.registerTeacher();
+      // 재연결 시 teacher 룸 재등록 + 상태 동기화
+      SocketClient.onReconnect(() => {
+        SocketClient.registerTeacher();
+      });
+
+      // 주기적 업데이트 (소켓 누락 보완용 폴링)
+      setInterval(loadFeedbackStats, 5000);
+      setInterval(loadQuestions, 10000);
+      setInterval(loadHelpRequests, 5000);
+
+      // 패널 경계 리사이즈 초기화
+      initPanelResize();
+
+      // Ctrl+Wheel: 캔버스 확대/축소
+      document.getElementById('classroomArea').addEventListener('wheel', (e) => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.01 : 0.01;
+        zoomLevel = Math.round(Math.max(0.3, Math.min(2.5, zoomLevel + delta)) * 100) / 100;
+        applyZoom();
+      }, { passive: false });
+
+      // Ctrl+0: 자동 맞춤
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === '0') {
+          e.preventDefault();
+          fitToContent();
+        }
+      });
+    }
+
+    // ─── 수강생 로드 ─────────────────────────────────────────
+    async function loadEnrollments() {
+      const res = await API.get(`/api/enrollments/${courseId}`);
+      if (res && res.success) {
+        enrollments = res.data;
+        document.getElementById('totalCount').textContent = `/ ${enrollments.length}명 등록`;
+      }
+    }
+
+    // ─── 레이아웃 로드/생성 ──────────────────────────────────
+    async function loadOrCreateLayout() {
+      const res = await API.get(`/api/layouts?course_id=${courseId}`);
+      let layouts = res && res.success ? res.data : [];
+
+      if (layouts.length === 0) {
+        // 기본 레이아웃 자동 생성
+        await createDefaultLayout();
+      } else {
+        // 첫 번째 레이아웃 불러오기
+        const detail = await API.get(`/api/layouts/${layouts[0].id}`);
+        if (detail && detail.success) {
+          currentLayout = detail.data;
+          // 저장된 책상 수가 수강생 수보다 적거나, 모든 enrollmentId가 현재 수강생과 불일치하면 재생성
+          const enrollmentIds = new Set(enrollments.map(e => e.id));
+          const matchCount = currentLayout.desks.filter(d => enrollmentIds.has(d.enrollmentId)).length;
+          const needsRegen = currentLayout.desks.length < enrollments.length
+            || (enrollments.length > 0 && matchCount === 0);
+          if (needsRegen) {
+            await API.delete(`/api/layouts/${currentLayout.id}`);
+            await createDefaultLayout();
+          } else {
+            renderDesks(currentLayout.desks);
+          }
+        }
+      }
+    }
+
+    // ─── 기본 레이아웃 생성 (격자 형태) ─────────────────────
+    async function createDefaultLayout() {
+      const cols = 5;
+      const deskW = 100, deskH = 80;  // 20px 배수
+      const gapX = 20, gapY = 20;     // 20px 배수
+      const startX = 20, startY = 20; // 20px 배수
+
+      const desks = enrollments.map((enr, i) => ({
+        id: `desk_${enr.id}`,
+        x: startX + (i % cols) * (deskW + gapX),
+        y: startY + Math.floor(i / cols) * (deskH + gapY),
+        w: deskW, h: deskH,
+        enrollmentId: enr.id,
+      }));
+
+      const res = await API.post('/api/layouts', {
+        name: '기본 레이아웃',
+        course_id: courseId,
+        desks,
+      });
+
+      if (res && res.success) {
+        currentLayout = res.data;
+        renderDesks(desks);
+      }
+    }
+
+    // ─── 책상 렌더링 ─────────────────────────────────────────
+    function renderDesks(desks) {
+      const canvas = document.getElementById('classroomCanvas');
+      canvas.innerHTML = '';
+
+      desks.forEach(desk => {
+        const enr = enrollments.find(e => e.id === desk.enrollmentId);
+        const fb  = feedbackState[desk.enrollmentId];
+        const connected = connectedSet.has(desk.enrollmentId);
+
+        const needsHelp = helpSet.has(desk.enrollmentId);
+        const el = document.createElement('div');
+        el.className = 'desk'
+          + (connected ? '' : ' offline')
+          + (enr ? '' : ' empty')
+          + (needsHelp ? ' help-needed' : '');
+        el.id = `desk_${desk.enrollmentId || desk.id}`;
+        // 저장된 위치를 그리드(20px)에 스냅 (이전 버그로 틀어진 위치 자동 교정)
+        desk.x = Math.round(desk.x / 20) * 20;
+        desk.y = Math.round(desk.y / 20) * 20;
+        el.style.left  = desk.x + 'px';
+        el.style.top   = desk.y + 'px';
+        el.style.width  = (desk.w || 80) + 'px';
+        el.style.height = (desk.h || 64) + 'px';
+        el.style.background = (connected && fb) ? (fb.color || '#94A3B8') : '#94A3B8';
+
+        el.innerHTML = `
+          ${needsHelp ? '<span class="desk-help-badge">🙋</span>' : ''}
+          ${(connected && fb) ? `<span class="desk-emoji">${fb.emoji}</span><span class="desk-status">${fb.label}</span>` : ''}
+          <span class="desk-name">${enr ? enr.name : '빈자리'}</span>
+        `;
+
+
+        canvas.appendChild(el);
+      });
+
+      // 캔버스 크기 조정 (하한 1200×800 포함, fitToContent 줌 계산과 동일 기준)
+      const maxX = Math.max(1200, Math.max(...desks.map(d => d.x + (d.w || 80))) + 20);
+      const maxY = Math.max(800,  Math.max(...desks.map(d => d.y + (d.h || 64))) + 20);
+      canvas.style.width  = maxX + 'px';
+      canvas.style.height = maxY + 'px';
+      applyZoom();
+
+      // 드래그 초기화
+      initDrag();
+    }
+
+    // ─── 피드백 현황 로드 ────────────────────────────────────
+    async function loadFeedbackStats() {
+      const currentRes = await API.get(`/api/feedback/${courseId}/current`);
+
+      if (currentRes && currentRes.success) {
+        // 접속 중이 아닌 학생의 피드백만 DB에서 복원 (현재 버튼세트 일치 항목만)
+        currentRes.data.forEach(item => {
+          if (item.color && !connectedSet.has(item.enrollment_id) &&
+              activeButtonSet && item.button_set_id === activeButtonSet.id) {
+            feedbackState[item.enrollment_id] = {
+              color: item.color, emoji: item.emoji, label: item.label,
+            };
+          }
+        });
+        // 책상 색상 업데이트 (드래그 중 전체 재렌더 방지 — 개별 업데이트)
+        if (currentLayout) {
+          currentLayout.desks.forEach(d => updateDeskState(d.enrollmentId));
+        }
+      }
+
+      // feedbackState 기반으로 통계 렌더링 (현재 버튼세트와 일치)
+      refreshStats();
+    }
+
+    // ─── 통계 갱신: feedbackState 기반 집계 (버튼세트와 항상 일치) ───
+    function refreshStats() {
+      const counts = {};
+      Object.entries(feedbackState).forEach(([enrollmentId, fb]) => {
+        if (!connectedSet.has(parseInt(enrollmentId))) return; // 접속 중인 학생만 집계
+        const key = `${fb.label}__${fb.color}__${fb.emoji}`;
+        if (!counts[key]) counts[key] = { label: fb.label, color: fb.color, emoji: fb.emoji, count: 0 };
+        counts[key].count++;
+      });
+      const stats = Object.values(counts).sort((a, b) => b.count - a.count);
+      const total = enrollments.length;
+      renderStats({ stats, total });
+    }
+
+    // ─── 통계 렌더링 ─────────────────────────────────────────
+    function renderStats({ stats, total }) {
+      const container = document.getElementById('statsContainer');
+      if (!stats || stats.length === 0) {
+        container.innerHTML = '<div class="text-sub" style="font-size:12px">피드백 없음</div>';
+        return;
+      }
+
+      const totalFb = stats.reduce((sum, s) => sum + s.count, 0);
+      container.innerHTML = stats.map(s => `
+        <div class="stat-bar">
+          <span class="stat-label">${s.emoji || ''} ${s.label || ''}</span>
+          <div class="stat-bar-fill">
+            <div class="stat-bar-inner" style="width:${Math.round(s.count/total*100)}%;background:${s.color || '#94a3b8'}"></div>
+          </div>
+          <span class="stat-count">${s.count}명</span>
+          <span class="stat-pct">${Math.round(s.count/total*100)}%</span>
+        </div>
+      `).join('');
+    }
+
+    // ─── 익명 질문 로드 ──────────────────────────────────────
+    async function loadQuestions() {
+      const res = await API.get(`/api/feedback/${courseId}/questions`);
+      if (!res || !res.success) return;
+
+      const qs = res.data.filter(q => !q.is_checked);
+      document.getElementById('questionCount').textContent = qs.length;
+
+      const container = document.getElementById('questionsContainer');
+      if (qs.length === 0) {
+        container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
+        return;
+      }
+
+      container.innerHTML = qs.map(q => `
+        <div class="question-item">
+          <span class="question-text"><strong>${escHtml(q.student_name)}</strong>: ${escHtml(q.text)}</span>
+          <button class="question-check" title="확인" onclick="checkQuestion(${q.id}, this)">✓</button>
+        </div>
+      `).join('');
+    }
+
+    async function checkQuestion(id, btn) {
+      await API.put(`/api/feedback/questions/${id}/check`);
+      SocketClient.checkQuestion(id);
+      btn.closest('.question-item').remove();
+      const cnt = document.getElementById('questionCount');
+      cnt.textContent = Math.max(0, parseInt(cnt.textContent) - 1);
+    }
+
+    // ─── 도움 요청 로드 ──────────────────────────────────────
+    async function loadHelpRequests() {
+      const res = await API.get(`/api/feedback/${courseId}/help-requests`);
+      if (!res || !res.success) return;
+
+      // helpSet 재구성 후 모든 책상 업데이트
+      const prevSet = new Set(helpSet);
+      helpSet = new Set(res.data.map(h => h.enrollment_id));
+      const changed = new Set([...prevSet, ...helpSet]);
+      changed.forEach(eid => updateDeskState(eid));
+
+      const container = document.getElementById('helpContainer');
+      if (res.data.length === 0) {
+        container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
+        return;
+      }
+
+      container.innerHTML = res.data.map((h, i) => `
+        <div class="help-item" id="help_${h.id}">
+          <div class="help-num">${i+1}</div>
+          <span class="help-name">${escHtml(h.name)}</span>
+          <button class="help-done-btn" onclick="helpDone(${h.id}, ${h.enrollment_id})">완료</button>
+        </div>
+      `).join('');
+    }
+
+    async function helpDone(id, enrollmentId) {
+      await API.put(`/api/feedback/help-requests/${id}/done`);
+      SocketClient.helpDone(id);
+      helpSet.delete(enrollmentId);
+      updateDeskState(enrollmentId);
+      document.getElementById(`help_${id}`)?.remove();
+      // 목록이 비었으면 "없음" 표시
+      const container = document.getElementById('helpContainer');
+      if (!container.querySelector('.help-item')) {
+        container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
+      }
+    }
+
+// ─── 드래그 초기화 (interact.js) ────────────────────────
+    function initDrag() {
+      // 기존 인스턴스 해제 후 재등록
+      interact('.desk').unset();
+
+      const GRID = 20; // 그리드 간격(px) — 배경 그리드와 동일
+
+      interact('.desk').draggable({
+        inertia: false,
+        styleCursor: false,
+        enabled: !isLocked,
+        listeners: {
+          start(event) {
+            if (isLocked) return;
+            isDragging = true;
+          },
+          move(event) {
+            if (isLocked) return;
+            const target = event.target;
+            // raw 누적값으로 델타 계산 (스냅된 값 기준이면 미세 이동이 버려짐)
+            // getAttribute가 null 반환 시 parseFloat(null)=NaN → ?? 로 fallback 안됨, 먼저 ?? 로 문자열 선택 후 parseFloat
+            const rawX = (parseFloat(target.getAttribute('data-x-raw') ?? target.getAttribute('data-x')) || 0) + event.dx / zoomLevel;
+            const rawY = (parseFloat(target.getAttribute('data-y-raw') ?? target.getAttribute('data-y')) || 0) + event.dy / zoomLevel;
+            target.setAttribute('data-x-raw', rawX);
+            target.setAttribute('data-y-raw', rawY);
+            // 표시는 스냅된 값으로
+            const x = Math.round(rawX / GRID) * GRID;
+            const y = Math.round(rawY / GRID) * GRID;
+            target.style.transform = `translate(${x}px, ${y}px)`;
+            target.setAttribute('data-x', x);
+            target.setAttribute('data-y', y);
+          },
+          end(event) {
+            isDragging = false;
+            if (isLocked) return;
+            if (!currentLayout) return;
+            const target = event.target;
+            target.removeAttribute('data-x-raw');
+            target.removeAttribute('data-y-raw');
+            const enrollmentId = parseInt(target.id.replace('desk_', ''));
+            const dx = parseFloat(target.getAttribute('data-x')) || 0;
+            const dy = parseFloat(target.getAttribute('data-y')) || 0;
+
+            const desk = currentLayout.desks.find(d => d.enrollmentId === enrollmentId);
+            if (desk) {
+              desk.x = Math.round((desk.x + dx) / GRID) * GRID;
+              desk.y = Math.round((desk.y + dy) / GRID) * GRID;
+              target.style.left = desk.x + 'px';
+              target.style.top  = desk.y + 'px';
+              target.style.transform = '';
+              target.setAttribute('data-x', 0);
+              target.setAttribute('data-y', 0);
+              resizeCanvas();
+              saveLayout();
+            }
+          },
+        },
+      });
+    }
+
+    // ─── 캔버스 크기 자동 조정 ──────────────────────────────
+    function resizeCanvas() {
+      if (!currentLayout || !currentLayout.desks.length) return;
+      const canvas = document.getElementById('classroomCanvas');
+      const maxX = Math.max(...currentLayout.desks.map(d => d.x + (d.w || 80))) + 40;
+      const maxY = Math.max(...currentLayout.desks.map(d => d.y + (d.h || 64))) + 40;
+      canvas.style.width  = Math.max(1200, maxX) + 'px';
+      canvas.style.height = Math.max(800,  maxY) + 'px';
+      applyZoom();
+    }
+
+    // ─── 캔버스 확대/축소 ────────────────────────────────────
+    function applyZoom() {
+      const canvas = document.getElementById('classroomCanvas');
+      canvas.style.zoom = zoomLevel;
+      const badge = document.getElementById('zoomBadge');
+      if (badge) badge.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    // ─── 책상 배치에 맞게 자동 맞춤 ─────────────────────────
+    function fitToContent() {
+      if (!currentLayout || !currentLayout.desks.length) return;
+      const area   = document.getElementById('classroomArea');
+      const canvas = document.getElementById('classroomCanvas');
+      // 책상 범위로만 계산 (1200/800 하한 없음) → 줌과 캔버스 크기가 동일 기준
+      const naturalW = Math.max(...currentLayout.desks.map(d => d.x + (d.w || 80))) + 40;
+      const naturalH = Math.max(...currentLayout.desks.map(d => d.y + (d.h || 64))) + 40;
+      canvas.style.width  = naturalW + 'px';
+      canvas.style.height = naturalH + 'px';
+      const availW = area.clientWidth  - 32;
+      const availH = area.clientHeight - 32;
+      const scale  = Math.min(availW / naturalW, availH / naturalH);
+      zoomLevel = Math.max(0.3, Math.min(2.5, Math.round(scale * 100) / 100));
+      applyZoom();
+    }
+
+    // ─── 패널 리사이즈 ──────────────────────────────────────
+    let rightPanelW       = 280;   // 우측 패널 너비 (px)
+    let legendH           = null;  // 아래 패널(범례) 높이 (null = auto)
+    let activeResizer     = null;  // 'right-panel' | 'legend'
+    let resizerStartX     = 0, resizerStartY = 0;
+    let resizerStartW     = 0, resizerStartH = 0;
+
+    function initPanelResize() {
+      const layout      = document.querySelector('.class-layout');
+
+      // ── 우측 패널 왼쪽 경계 ──
+      const rightHandle = document.getElementById('rightPanelResize');
+      rightHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        activeResizer  = 'right-panel';
+        resizerStartX  = e.clientX;
+        resizerStartW  = rightPanelW;
+        rightHandle.classList.add('active');
+        document.body.style.cursor     = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        layout.style.transition        = 'none';
+      });
+
+      // ── 아래 패널(범례) 위쪽 경계 ──
+      const legendHandle = document.getElementById('legendResize');
+      legendHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        activeResizer  = 'legend';
+        resizerStartY  = e.clientY;
+        const legend   = document.getElementById('buttonLegend');
+        resizerStartH  = legend.getBoundingClientRect().height;
+        legendHandle.classList.add('active');
+        document.body.style.cursor     = 'ns-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      // ── 공통 mousemove ──
+      document.addEventListener('mousemove', (e) => {
+        if (!activeResizer) return;
+        if (activeResizer === 'right-panel') {
+          const dx   = resizerStartX - e.clientX;   // 왼쪽 드래그 → 패널 확대
+          rightPanelW = Math.max(180, Math.min(600, resizerStartW + dx));
+          applyPanelWidth();
+        } else if (activeResizer === 'legend') {
+          const dy    = resizerStartY - e.clientY;  // 위로 드래그 → 범례 확대
+          legendH     = Math.max(36, Math.min(300, resizerStartH + dy));
+          document.getElementById('buttonLegend').style.height = legendH + 'px';
+        }
+      });
+
+      // ── 공통 mouseup ──
+      document.addEventListener('mouseup', () => {
+        if (!activeResizer) return;
+        if (activeResizer === 'right-panel') {
+          rightHandle.classList.remove('active');
+          layout.style.transition = '';
+        } else if (activeResizer === 'legend') {
+          document.getElementById('legendResize').classList.remove('active');
+        }
+        activeResizer              = null;
+        document.body.style.cursor     = '';
+        document.body.style.userSelect = '';
+      });
+    }
+
+    function applyPanelWidth() {
+      const layout   = document.querySelector('.class-layout');
+      const sidebarW = layout.classList.contains('sidebar-collapsed') ? 0 : 200;
+      layout.style.gridTemplateColumns = `${sidebarW}px 1fr ${rightPanelW}px`;
+    }
+
+    // ─── 레이아웃 저장 (debounce) ────────────────────────────
+    let saveTimer = null;
+    function saveLayout() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        if (!currentLayout) return;
+        await API.put(`/api/layouts/${currentLayout.id}`, {
+          name: currentLayout.name,
+          desks: currentLayout.desks,
+        });
+      }, 800);
+    }
+
+    // ─── 잠금 모드 토글 ─────────────────────────────────────
+    function toggleLock() {
+      isLocked = !isLocked;
+      const btn = document.getElementById('lockBtn');
+      btn.textContent = isLocked ? '🔓 수정모드' : '🔒 고정모드';
+      document.getElementById('classroomCanvas').classList.toggle('edit-mode', !isLocked);
+      interact('.desk').draggable({ enabled: !isLocked });
+      Toast.success(isLocked ? '레이아웃이 잠겼습니다.' : '책상을 드래그해서 이동하세요.');
+    }
+
+    // ─── 전체 상태 초기화 ────────────────────────────────────
+    function confirmClearAll() {
+      if (!confirm('전체 학생의 피드백 상태를 초기화하시겠습니까?\n학생 화면의 상태도 함께 지워집니다.')) return;
+      SocketClient.clearAllStates(courseId);
+    }
+
+    // ─── 공지 전송 ───────────────────────────────────────────
+    function addLinkRow() {
+      const container = document.getElementById('linksContainer');
+      const row = document.createElement('div');
+      row.className = 'link-input-row';
+      row.innerHTML = `
+        <input type="url" class="input link-url" placeholder="https://...">
+        <button class="btn btn-secondary btn-sm" onclick="this.closest('.link-input-row').remove()">✕</button>
+      `;
+      container.appendChild(row);
+    }
+
+    function sendNotice() {
+      const text = document.getElementById('noticeText').value.trim();
+      if (!text) { Toast.error('공지 내용을 입력해주세요.'); return; }
+
+      const linkRows = document.querySelectorAll('.link-input-row');
+      const links = [];
+      linkRows.forEach(row => {
+        const url = row.querySelector('.link-url').value.trim();
+        if (url) links.push({ label: url, url });
+      });
+
+      SocketClient.sendNotice(courseId, text, links);
+      Toast.success('공지가 전송되었습니다.');
+      Modal.close('noticeModal');
+      document.getElementById('noticeText').value = '';
+      document.getElementById('linksContainer').innerHTML = '';
+    }
+
+    // ─── 버튼 세트 로드 ──────────────────────────────────────
+    async function loadButtonSets() {
+      const res = await API.get(`/api/button-sets?course_id=${courseId}`);
+      if (!res || !res.success) return;
+
+      const sets = res.data;
+      if (sets.length > 0) activeButtonSet = sets[0];
+      updateActiveButtonSetLabel();
+      updateLegend();
+
+      const container = document.getElementById('buttonSetList');
+      container.innerHTML = sets.map(s => `
+        <div class="flex items-center gap-sm" style="padding:8px;border:1px solid var(--border);border-radius:var(--radius-md)">
+          <input type="radio" name="buttonSet" id="bs_${s.id}" ${activeButtonSet && activeButtonSet.id === s.id ? 'checked' : ''}
+            onchange="applyButtonSetChange(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+          <label for="bs_${s.id}" style="flex:1;cursor:pointer">
+            <strong>${s.name}</strong>
+            <span style="margin-left:8px">${s.buttons.map(b => b.emoji || '●').join(' ')}</span>
+          </label>
+        </div>
+      `).join('');
+    }
+
+    // ─── 범례 갱신 ───────────────────────────────────────────
+    function updateLegend() {
+      const container = document.getElementById('buttonLegend');
+      if (!container || !activeButtonSet) return;
+      container.innerHTML =
+        activeButtonSet.buttons.map(b =>
+          `<div class="legend-item"><div class="legend-dot" style="background:${b.color}"></div> ${b.emoji || ''} ${b.label}</div>`
+        ).join('') +
+        '<div class="legend-item"><div class="legend-dot" style="background:#94A3B8"></div> 미응답</div>';
+    }
+
+    // ─── 버튼 세트 변경 적용 및 학생에게 전달 ───────────────────
+    function updateActiveButtonSetLabel() {
+      const label = document.getElementById('activeButtonSetName');
+      if (!label) return;
+      label.textContent = activeButtonSet ? `[${activeButtonSet.name}]` : '';
+    }
+
+    function applyButtonSetChange(set) {
+      activeButtonSet = set;
+      updateActiveButtonSetLabel();
+      updateLegend();
+      // 전체 학생 상태 초기화 (버튼 세트가 바뀌면 이전 상태는 의미 없음)
+      feedbackState = {};
+      if (currentLayout) renderDesks(currentLayout.desks);
+      refreshStats();
+      // 학생 화면에 새 버튼 세트 전달
+      SocketClient.changeButtonSet(courseId, set);
+      Toast.success(`버튼 세트가 "${set.name}"으로 변경되었습니다.`);
+      Modal.close('buttonSetModal');
+    }
+
+    // ─── Socket 이벤트 처리 ──────────────────────────────────
+    function setupSocketHandlers() {
+      // 강사 등록 완료 시 서버로부터 현재 접속 학생 목록 수신 (리로드 시 상태 복원)
+      SocketClient.onSync((data) => {
+        connectedSet.clear();
+        data.students.forEach(s => {
+          if (s.courseId == courseId) connectedSet.add(s.enrollmentId);
+        });
+        updateConnectedCount();
+
+        // 서버에 저장된 활성 버튼세트로 동기화
+        const serverSet = data.activeButtonSets && data.activeButtonSets[String(courseId)];
+        if (serverSet) {
+          activeButtonSet = serverSet;
+          updateActiveButtonSetLabel();
+          updateLegend();
+          document.querySelectorAll('input[name="buttonSet"]').forEach(r => {
+            r.checked = (r.id === `bs_${serverSet.id}`);
+          });
+        }
+
+        if (currentLayout && !isDragging) renderDesks(currentLayout.desks);
+      });
+
+      SocketClient.onStudentJoined((data) => {
+        if (data.courseId == courseId) {
+          connectedSet.add(data.enrollmentId);
+          updateConnectedCount();
+          updateDeskState(data.enrollmentId);
+        }
+      });
+
+      SocketClient.onStudentLeft((data) => {
+        if (data.courseId == courseId) {
+          connectedSet.delete(data.enrollmentId);
+          delete feedbackState[data.enrollmentId];
+          updateConnectedCount();
+          updateDeskState(data.enrollmentId);
+        }
+      });
+
+      SocketClient.onFeedbackUpdate((data) => {
+        feedbackState[data.enrollmentId] = {
+          color: data.color, emoji: data.emoji, label: data.label,
+        };
+        updateDeskState(data.enrollmentId);
+        refreshStats();
+      });
+
+      // 개별 학생 상태 삭제 (학생이 직접 지운 경우)
+      SocketClient.onFeedbackCleared((data) => {
+        if (data.courseId != courseId) return;
+        delete feedbackState[data.enrollmentId];
+        updateDeskState(data.enrollmentId);
+        refreshStats();
+      });
+
+      // 전체 학생 상태 초기화 완료
+      SocketClient.onAllFeedbackCleared((data) => {
+        if (data.courseId != courseId) return;
+        feedbackState = {};
+        if (currentLayout) renderDesks(currentLayout.desks);
+        refreshStats();
+        Toast.success('전체 학생 상태가 초기화되었습니다.');
+      });
+
+      SocketClient.onQuestionReceived((data) => {
+        // 새 질문 추가
+        const container = document.getElementById('questionsContainer');
+        const empty = container.querySelector('.text-sub');
+        if (empty) empty.remove();
+
+        const item = document.createElement('div');
+        item.className = 'question-item';
+        item.innerHTML = `
+          <span class="question-text"><strong>${escHtml(data.studentName)}</strong>: ${escHtml(data.text)}</span>
+          <button class="question-check" title="확인" onclick="checkQuestion(${data.id}, this)">✓</button>
+        `;
+        container.prepend(item);
+
+        const cnt = document.getElementById('questionCount');
+        cnt.textContent = parseInt(cnt.textContent) + 1;
+      });
+
+      SocketClient.onHelpRequested((data) => {
+        Toast.warning(`🙋 ${data.name}님이 도움을 요청했습니다.`);
+        helpSet.add(data.enrollmentId);
+        updateDeskState(data.enrollmentId);
+        loadHelpRequests();
+      });
+    }
+
+    function updateConnectedCount() {
+      document.getElementById('connectedCount').textContent = connectedSet.size;
+      document.getElementById('connectedBadge').textContent = connectedSet.size + '명 접속';
+    }
+
+    function updateDeskState(enrollmentId) {
+      const fb = feedbackState[enrollmentId];
+      const connected = connectedSet.has(enrollmentId);
+      const needsHelp = helpSet.has(enrollmentId);
+      const el = document.getElementById(`desk_${enrollmentId}`);
+      if (!el) return;
+
+      // 배경색 업데이트 (접속 중일 때만 피드백 색상 표시)
+      el.style.background = (connected && fb) ? (fb.color || '#94A3B8') : '#94A3B8';
+      el.classList.toggle('offline', !connected);
+      el.classList.toggle('help-needed', needsHelp);
+
+      // 이름 가져오기
+      const nameSpan = el.querySelector('.desk-name');
+      const name = nameSpan ? nameSpan.textContent : '';
+
+      // innerHTML 재렌더링
+      el.innerHTML = `
+        ${needsHelp ? '<span class="desk-help-badge">🙋</span>' : ''}
+        ${(connected && fb) ? `<span class="desk-emoji">${fb.emoji}</span><span class="desk-status">${fb.label}</span>` : ''}
+        <span class="desk-name">${name}</span>
+      `;
+    }
+
+    // ─── 사이드바 토글 (common.js 오버라이드: 패널 너비 유지) ────
+    function toggleSidebar() {
+      const layout = document.querySelector('.class-layout');
+      const collapsed = layout.classList.toggle('sidebar-collapsed');
+      localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+      // 패널 너비가 사용자 지정된 경우 재적용
+      if (layout.style.gridTemplateColumns) applyPanelWidth();
+    }
+
+    // ─── 유틸 ───────────────────────────────────────────────
+    function escHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 대시보드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .course-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-lg);
+    }
+
+    .course-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--gap-md);
+      cursor: pointer;
+      transition: all .15s;
+      position: relative;
+    }
+    .course-card:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+    .course-card.today {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .course-name {
+      font-size: var(--font-sub);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .course-meta {
+      font-size: var(--font-caption);
+      color: var(--text-sub);
+      margin-bottom: var(--gap-md);
+    }
+
+    .course-actions {
+      display: flex;
+      gap: var(--gap-sm);
+      align-items: center;
+    }
+
+    .today-badge {
+      display: inline-block;
+      background: var(--primary);
+      color: #fff;
+      font-size: var(--font-caption);
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .ended-courses {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .ended-item {
+      display: flex;
+      align-items: center;
+      padding: 12px var(--gap-md);
+      border-bottom: 1px solid var(--border);
+      gap: var(--gap-md);
+    }
+    .ended-item:last-child { border-bottom: none; }
+
+    .section-title {
+      font-size: var(--font-sub);
+      font-weight: 600;
+      margin-bottom: var(--gap-md);
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+    }
+
+    /* 과정 생성 모달 */
+    .modal-body { display: flex; flex-direction: column; gap: var(--gap-md); }
+  </style>
+</head>
+<body>
+  <div class="teacher-layout">
+    <!-- 탑바 -->
+    <header class="topbar">
+      <button class="btn-hamburger" onclick="toggleSidebar()" title="메뉴 접기/펼치기">☰</button>
+      <div class="topbar-logo">Class<span>On</span></div>
+      <div class="topbar-course" id="todayCourse">과정을 선택해주세요</div>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+    </header>
+
+    <!-- 사이드바 -->
+    <nav class="sidebar">
+      <div class="sidebar-nav">
+        <a href="/teacher/dashboard.html" class="sidebar-item active">📋 과정 관리</a>
+        <a href="/teacher/class.html"     class="sidebar-item">🖥️ 수업 진행</a>
+        <a href="/teacher/students.html"  class="sidebar-item">👥 학생 관리</a>
+        <a href="/teacher/quiz.html"      class="sidebar-item">📝 퀴즈</a>
+        <a href="/teacher/questions.html" class="sidebar-item">📚 문제 은행</a>
+        <a href="/teacher/teams.html"     class="sidebar-item">🏃 팀 편성</a>
+        <a href="/teacher/settings.html"  class="sidebar-item">⚙️ 설정</a>
+      </div>
+    </nav>
+
+    <!-- 메인 -->
+    <main class="main-content">
+      <!-- 진행 중인 과정 -->
+      <div class="section-title">
+        🟢 진행 중인 과정
+        <button class="btn btn-primary btn-sm" onclick="openCreateCourse()">+ 과정 추가</button>
+      </div>
+      <div class="course-grid" id="activeCourses">
+        <div class="text-sub">불러오는 중...</div>
+      </div>
+
+      <!-- 종료된 과정 -->
+      <div class="section-title" style="margin-top:24px">⬛ 종료된 과정</div>
+      <div class="ended-courses" id="endedCourses">
+        <div class="ended-item text-sub">없음</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 과정 추가/수정 모달 -->
+  <div class="modal-overlay" id="createCourseModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="courseModalTitle">과정 추가</div>
+        <button class="modal-close" onclick="Modal.close('createCourseModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">과정명 *</label>
+          <input type="text" id="courseName" class="input" placeholder="예: 반도체설계">
+        </div>
+        <div class="form-group">
+          <label class="form-label">기수</label>
+          <input type="text" id="courseCohort" class="input" placeholder="예: 3기 (선택)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">시작일</label>
+          <input type="date" id="courseStartDate" class="input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">종료일</label>
+          <input type="date" id="courseEndDate" class="input">
+        </div>
+        <input type="hidden" id="editCourseId">
+        <div class="flex gap-sm" style="justify-content:flex-end; margin-top:8px">
+          <button class="btn btn-secondary" onclick="Modal.close('createCourseModal')">취소</button>
+          <button class="btn btn-primary" onclick="saveCourse()">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    // ─── 데이터 로드 ───────────────────────────────────────────
+    async function loadCourses() {
+      const res = await API.get('/api/courses');
+      if (!res || !res.success) return;
+
+      const courses = res.data;
+      const active = courses.filter(c => c.status === 'active');
+      const ended  = courses.filter(c => c.status === 'ended');
+
+      // 오늘 수업 표시 업데이트
+      const todayC = active.find(c => c.is_today);
+      document.getElementById('todayCourse').textContent =
+        todayC ? `현재: ${todayC.name} ${todayC.cohort}` : '과정을 선택해주세요';
+      if (todayC) setCurrentCourseId(todayC.id);
+
+      // 진행 중인 과정
+      const grid = document.getElementById('activeCourses');
+      if (active.length === 0) {
+        grid.innerHTML = '<p class="text-sub">진행 중인 과정이 없습니다.</p>';
+      } else {
+        grid.innerHTML = active.map(c => `
+          <div class="course-card ${c.is_today ? 'today' : ''}">
+            <div class="course-name">${c.name}${c.cohort ? ' ' + c.cohort : ''}</div>
+            <div class="course-meta">
+              ${c.student_count}명
+              ${c.start_date || c.end_date ? ' · ' + (c.start_date ? formatDate(c.start_date) : '?') + ' ~ ' + (c.end_date ? formatDate(c.end_date) : '진행중') : ''}
+              ${c.is_today ? '<span class="today-badge">오늘 수업</span>' : ''}
+            </div>
+            <div class="course-actions">
+              ${!c.is_today ? `<button class="btn btn-primary btn-sm" onclick="activateCourse(${c.id})">수업 시작 →</button>` : `<button class="btn btn-outline btn-sm" onclick="window.location='/teacher/class.html'">수업 진행 →</button>`}
+              <button class="btn btn-secondary btn-sm" onclick="openEditCourse(${c.id},'${escHtml(c.name)}','${escHtml(c.cohort)}','${c.start_date||''}','${c.end_date||''}')">수정</button>
+              <button class="btn btn-secondary btn-sm" onclick="endCourse(${c.id})">종료</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // 종료된 과정
+      const endedEl = document.getElementById('endedCourses');
+      if (ended.length === 0) {
+        endedEl.innerHTML = '<div class="ended-item text-sub">종료된 과정이 없습니다.</div>';
+      } else {
+        endedEl.innerHTML = ended.map(c => `
+          <div class="ended-item">
+            <span style="flex:1">${c.name}${c.cohort ? ' ' + c.cohort : ''}</span>
+            <span class="text-sub">${c.student_count}명</span>
+            <span class="text-sub">${(c.start_date ? formatDate(c.start_date) : '?') + ' ~ ' + (c.end_date ? formatDate(c.end_date) : '?')}</span>
+            <button class="btn btn-secondary btn-sm" onclick="openEditCourse(${c.id},'${escHtml(c.name)}','${escHtml(c.cohort)}','${c.start_date||''}','${c.end_date||''}')">수정</button>
+            <button class="btn btn-secondary btn-sm" onclick="restoreCourse(${c.id})">↩ 복구</button>
+          </div>
+        `).join('');
+      }
+    }
+
+    // ─── 과정 추가 모달 열기 ─────────────────────────────────
+    function openCreateCourse() {
+      document.getElementById('courseModalTitle').textContent = '과정 추가';
+      document.getElementById('courseName').value = '';
+      document.getElementById('courseCohort').value = '';
+      document.getElementById('courseStartDate').value = '';
+      document.getElementById('courseEndDate').value = '';
+      document.getElementById('editCourseId').value = '';
+      Modal.open('createCourseModal');
+    }
+
+    // ─── 과정 수정 모달 열기 ─────────────────────────────────
+    function openEditCourse(id, name, cohort, startDate, endDate) {
+      document.getElementById('courseModalTitle').textContent = '과정 수정';
+      document.getElementById('courseName').value = name;
+      document.getElementById('courseCohort').value = cohort;
+      document.getElementById('courseStartDate').value = startDate;
+      document.getElementById('courseEndDate').value = endDate;
+      document.getElementById('editCourseId').value = id;
+      Modal.open('createCourseModal');
+    }
+
+    // ─── 과정 저장 (추가 or 수정) ────────────────────────────
+    async function saveCourse() {
+      const id        = document.getElementById('editCourseId').value;
+      const name      = document.getElementById('courseName').value.trim();
+      const cohort    = document.getElementById('courseCohort').value.trim();
+      const startDate = document.getElementById('courseStartDate').value;
+      const endDate   = document.getElementById('courseEndDate').value;
+
+      if (!name) { Toast.error('과정명은 필수입니다.'); return; }
+
+      let res;
+      if (id) {
+        res = await API.put(`/api/courses/${id}`, {
+          name, cohort, start_date: startDate || null, end_date: endDate || null,
+        });
+      } else {
+        res = await API.post('/api/courses', {
+          name, cohort, start_date: startDate || null, end_date: endDate || null,
+        });
+      }
+
+      if (res && res.success) {
+        Toast.success(id ? '과정이 수정되었습니다.' : '과정이 추가되었습니다.');
+        Modal.close('createCourseModal');
+        loadCourses();
+      } else {
+        Toast.error((res && res.message) || '저장 실패');
+      }
+    }
+
+    // ─── 수업 시작 (오늘 과정 지정) ─────────────────────────
+    async function activateCourse(id) {
+      const res = await API.post(`/api/courses/${id}/activate`);
+      if (res && res.success) {
+        setCurrentCourseId(id);
+        Toast.success('오늘 수업 과정이 설정되었습니다.');
+        loadCourses();
+      }
+    }
+
+    // ─── 과정 복구 ───────────────────────────────────────────
+    async function restoreCourse(id) {
+      if (!confirm('이 과정을 다시 활성화하시겠습니까?')) return;
+      const res = await API.put(`/api/courses/${id}`, { status: 'active' });
+      if (res && res.success) {
+        Toast.success('과정이 복구되었습니다.');
+        loadCourses();
+      }
+    }
+
+    // ─── 과정 종료 ───────────────────────────────────────────
+    async function endCourse(id) {
+      if (!confirm('이 과정을 종료하시겠습니까?')) return;
+      const res = await API.put(`/api/courses/${id}`, { status: 'ended' });
+      if (res && res.success) {
+        Toast.success('과정이 종료되었습니다.');
+        loadCourses();
+      }
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+    }
+
+    loadCourses();
+  </script>
+</body>
+</html>

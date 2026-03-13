@@ -1,0 +1,28 @@
+{
+  "name": "classon",
+  "version": "1.0.0",
+  "description": "ClassOn - 교실 운영 통합 플랫폼",
+  "main": "core/server.js",
+  "scripts": {
+    "start": "node core/server.js",
+    "dev": "nodemon core/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "express": "^4.22.1",
+    "express-session": "^1.19.0",
+    "multer": "^1.4.5-lts.2",
+    "socket.io": "^4.8.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "author": "ClassOn",
+  "license": "MIT",
+  "notes": "node:sqlite 내장 모듈 사용 (Node.js 22.5+ 필요, 빌드 도구 불필요)"
+}

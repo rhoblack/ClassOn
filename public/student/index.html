@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 학생 입장</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--surface);
+    }
+
+    .student-header {
+      width: 100%;
+      padding: var(--gap-md) var(--gap-lg);
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      position: relative;
+    }
+    .about-btn {
+      position: absolute;
+      top: 50%; right: var(--gap-lg);
+      transform: translateY(-50%);
+      background: none; border: none;
+      font-size: 18px; cursor: pointer;
+      color: var(--text-sub); padding: 4px;
+      border-radius: 50%; line-height: 1;
+    }
+    .about-btn:hover { background: var(--border); color: var(--text); }
+    .about-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .about-modal-overlay.open { display: flex; }
+    .about-modal {
+      background: var(--background);
+      border-radius: var(--radius-lg);
+      padding: var(--gap-lg);
+      max-width: 360px; width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .about-modal-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: var(--gap-md);
+    }
+    .about-modal-title { font-size: var(--font-sub); font-weight: 700; }
+    .about-modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 16px; color: var(--text-sub); padding: 2px 6px;
+    }
+
+    .student-logo { font-size: 24px; font-weight: 700; }
+    .student-logo span { color: var(--primary); }
+
+    .course-title {
+      font-size: var(--font-sub);
+      font-weight: 600;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+
+    .student-main {
+      width: 100%;
+      max-width: 640px;
+      padding: var(--gap-lg);
+    }
+
+    .select-prompt {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: var(--gap-lg);
+    }
+
+    .student-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--gap-sm);
+    }
+
+    .student-btn {
+      padding: 16px 8px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--background);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: all .15s;
+      text-align: center;
+    }
+    .student-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .student-btn.attending {
+      border-color: var(--color-good);
+      color: var(--color-good);
+      background: #ecfdf5;
+    }
+    .student-btn.attending::after {
+      content: ' ✓';
+      font-size: 12px;
+    }
+
+    .no-course {
+      text-align: center;
+      padding: var(--gap-xl);
+      color: var(--text-sub);
+    }
+
+    @media (max-width: 480px) {
+      .student-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="student-header">
+    <div class="student-logo">Class<span>On</span></div>
+    <div class="course-title" id="courseTitle">과정을 확인하는 중...</div>
+    <button class="about-btn" onclick="document.getElementById('aboutModal').classList.add('open')" title="만든이 정보">ℹ️</button>
+  </div>
+
+  <!-- 만든이 정보 모달 -->
+  <div class="about-modal-overlay" id="aboutModal" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="about-modal">
+      <div class="about-modal-header">
+        <div class="about-modal-title">👤 만든이 정보</div>
+        <button class="about-modal-close" onclick="document.getElementById('aboutModal').classList.remove('open')">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--gap-md);margin-bottom:var(--gap-md)">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--primary-light);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">👨‍💻</div>
+        <div>
+          <div style="font-weight:700;font-size:var(--font-sub)">노진호</div>
+          <div style="color:var(--text-sub);font-size:var(--font-caption)">진현테크 대표</div>
+          <a href="mailto:rhoblack@gmail.com" style="font-size:var(--font-caption);color:var(--primary);text-decoration:none">rhoblack@gmail.com</a>
+        </div>
+        <span style="margin-left:auto;background:var(--primary);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;flex-shrink:0">v0.1.19</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:var(--gap-md)">
+        <div style="font-size:var(--font-caption);font-weight:700;color:var(--text-sub);margin-bottom:6px">이력</div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px;font-size:var(--font-caption)">
+          <li style="display:flex;gap:6px"><span style="color:var(--text-sub);flex-shrink:0">전</span><span>삼성전자 책임 연구원</span></li>
+          <li style="display:flex;gap:6px"><span style="color:var(--text-sub);flex-shrink:0">전</span><span>대한상공회의소 정규직 교수</span></li>
+          <li style="display:flex;gap:6px"><span style="color:var(--primary);font-weight:700;flex-shrink:0">현</span><span>진현테크 대표 · 시스템 반도체 설계 및 검증, 임베디드 시스템, 전자 분야 실무 교육 강사</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="student-main">
+    <div class="select-prompt">이름을 선택하세요</div>
+    <div class="student-grid" id="studentGrid">
+      <div class="text-sub" style="grid-column:1/-1;text-align:center;padding:24px">불러오는 중...</div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let courseId = null;
+    let enrollments = [];
+
+    async function init() {
+      // 오늘 수업 과정 조회
+      const res = await API.get('/api/courses-today');
+      if (!res || !res.success || !res.data) {
+        document.getElementById('courseTitle').textContent = '오늘 수업 과정 없음';
+        document.getElementById('studentGrid').innerHTML =
+          '<div class="no-course">현재 진행 중인 수업이 없습니다.<br>강사에게 문의하세요.</div>';
+        return;
+      }
+
+      const course = res.data;
+      courseId = course.id;
+      document.getElementById('courseTitle').textContent = `${course.name} ${course.cohort}`;
+
+      // 수강생 목록 로드
+      const enrRes = await API.get(`/api/enrollments/${courseId}`);
+      if (!enrRes || !enrRes.success) return;
+
+      enrollments = enrRes.data;
+      renderStudents();
+    }
+
+    function renderStudents() {
+      const grid = document.getElementById('studentGrid');
+
+      if (enrollments.length === 0) {
+        grid.innerHTML = '<div class="no-course" style="grid-column:1/-1">등록된 학생이 없습니다.</div>';
+        return;
+      }
+
+      // 이름 순 정렬
+      const sorted = [...enrollments].sort((a, b) => a.name.localeCompare(b.name));
+
+      grid.innerHTML = sorted.map(enr => `
+        <button class="student-btn" onclick="enterAsStudent(${enr.id}, '${escHtml(enr.name)}')">
+          ${escHtml(enr.name)}
+        </button>
+      `).join('');
+    }
+
+    function enterAsStudent(enrollmentId, name) {
+      // 로컬스토리지에 학생 정보 저장
+      localStorage.setItem('studentEnrollmentId', enrollmentId);
+      localStorage.setItem('studentName', name);
+      localStorage.setItem('studentCourseId', courseId);
+
+      // 피드백 화면으로 이동
+      window.location.href = '/student/class';
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

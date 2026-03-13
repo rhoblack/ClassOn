@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 팀 편성</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--gap-md);
+      margin-top: var(--gap-md);
+    }
+
+    .team-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .team-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 10px var(--gap-md);
+      font-weight: 700;
+      font-size: var(--font-sub);
+    }
+
+    .team-body {
+      padding: var(--gap-sm);
+    }
+
+    .team-member {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px var(--gap-sm);
+      border-radius: var(--radius-sm);
+      margin-bottom: 4px;
+      background: var(--surface);
+      font-size: var(--font-caption);
+    }
+
+    .member-name { font-weight: 600; }
+    .member-score { color: var(--text-sub); }
+
+    .team-avg {
+      text-align: center;
+      padding: var(--gap-sm);
+      border-top: 1px solid var(--border);
+      font-size: var(--font-caption);
+      color: var(--text-sub);
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: var(--gap-sm);
+      align-items: center;
+      margin-bottom: var(--gap-md);
+    }
+
+    /* ── 수동 편성 UI ── */
+    .manual-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--gap-md);
+      padding: var(--gap-sm) var(--gap-md);
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+
+    .manual-layout {
+      display: flex;
+      gap: var(--gap-md);
+      align-items: flex-start;
+    }
+
+    .pool-panel {
+      width: 180px;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .panel-title {
+      background: var(--surface);
+      padding: 10px var(--gap-md);
+      font-weight: 700;
+      font-size: var(--font-sub);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pool-chips {
+      padding: var(--gap-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .pool-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px var(--gap-sm);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      font-size: var(--font-caption);
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.1s, background 0.1s;
+    }
+
+    .pool-chip:hover { border-color: var(--primary); }
+
+    .pool-chip.selected {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .pool-chip.selected .member-score { color: rgba(255,255,255,0.8); }
+
+    .manual-teams-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--gap-md);
+    }
+
+    .manual-team-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .manual-team-card.droppable {
+      cursor: pointer;
+      border-color: #93c5fd;
+    }
+
+    .manual-team-card.droppable:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+
+    .manual-member {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px var(--gap-sm);
+      border-radius: var(--radius-sm);
+      margin-bottom: 4px;
+      background: var(--surface);
+      font-size: var(--font-caption);
+    }
+
+    .btn-remove {
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    .btn-remove:hover { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="teacher-layout">
+    <header class="topbar">
+      <button class="btn-hamburger" onclick="toggleSidebar()" title="메뉴 접기/펼치기">☰</button>
+      <div class="topbar-logo">Class<span>On</span></div>
+      <div class="topbar-course" id="courseName">-</div>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+    </header>
+
+    <nav class="sidebar">
+      <div class="sidebar-nav">
+        <a href="/teacher/dashboard.html" class="sidebar-item">📋 과정 관리</a>
+        <a href="/teacher/class.html"     class="sidebar-item">🖥️ 수업 진행</a>
+        <a href="/teacher/students.html"  class="sidebar-item">👥 학생 관리</a>
+        <a href="/teacher/quiz.html"      class="sidebar-item">📝 퀴즈</a>
+        <a href="/teacher/questions.html" class="sidebar-item">📚 문제 은행</a>
+        <a href="/teacher/teams.html"     class="sidebar-item active">🏃 팀 편성</a>
+        <a href="/teacher/settings.html"  class="sidebar-item">⚙️ 설정</a>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <h1 class="page-title">🏃 팀 편성</h1>
+
+      <div class="controls-bar">
+        <label class="form-label" style="margin:0">팀 수:</label>
+        <select id="teamCount" class="select" style="width:100px">
+          <option value="2">2팀</option>
+          <option value="3">3팀</option>
+          <option value="4" selected>4팀</option>
+          <option value="5">5팀</option>
+          <option value="6">6팀</option>
+          <option value="7">7팀</option>
+          <option value="8">8팀</option>
+          <option value="9">9팀</option>
+          <option value="10">10팀</option>
+          <option value="11">11팀</option>
+          <option value="12">12팀</option>
+          <option value="13">13팀</option>
+          <option value="14">14팀</option>
+          <option value="15">15팀</option>
+          <option value="16">16팀</option>
+          <option value="17">17팀</option>
+          <option value="18">18팀</option>
+          <option value="19">19팀</option>
+          <option value="20">20팀</option>
+        </select>
+        <button class="btn btn-primary" onclick="autoTeam()">🤖 자동 편성</button>
+        <button class="btn btn-secondary" onclick="enterManualMode()">✏️ 수동 편성</button>
+        <button class="btn btn-secondary" onclick="resetTeams()">🔄 초기화</button>
+        <span class="text-sub" style="margin-left:auto;font-size:12px">* 자동: 성취도 기반 균형 배분 (Snake Draft)</span>
+      </div>
+
+      <div id="teamsContainer">
+        <p class="text-sub">팀을 편성해보세요.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let courseId = getCurrentCourseId();
+    let teamsData = [];
+    let allStudents = [];
+    let manualTeams = [];
+    let selectedEnrollmentId = null;
+
+    async function init() {
+      const course = await loadCurrentCourse();
+      if (course) document.getElementById('courseName').textContent = `현재: ${course.name} ${course.cohort}`;
+      await loadTeams();
+    }
+
+    async function loadTeams() {
+      if (!courseId) return;
+      const res = await API.get(`/api/teams/${courseId}`);
+      if (!res || !res.success) return;
+      teamsData = res.data;
+      renderTeams();
+    }
+
+    function renderTeams() {
+      const container = document.getElementById('teamsContainer');
+
+      if (teamsData.length === 0) {
+        container.innerHTML = '<p class="text-sub">팀을 편성해보세요. [자동 편성] 또는 [수동 편성] 버튼을 클릭하세요.</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="teams-grid">
+          ${teamsData.map(team => {
+            const members = team.memberDetails || [];
+            const avg = members.length > 0
+              ? Math.round(members.reduce((s, m) => s + (m.achievement || 0), 0) / members.length)
+              : 0;
+            return `
+              <div class="team-card">
+                <div class="team-header">${escHtml(team.name)}</div>
+                <div class="team-body">
+                  ${members.map(m => `
+                    <div class="team-member">
+                      <span class="member-name">${escHtml(m.name)}</span>
+                      <span class="member-score">${fmtPct(m.achievement)}</span>
+                    </div>
+                  `).join('')}
+                  ${members.length === 0 ? '<p class="text-sub" style="font-size:12px">멤버 없음</p>' : ''}
+                </div>
+                <div class="team-avg">평균 성취도: <strong>${fmtPct(avg)}</strong></div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <div style="margin-top:var(--gap-lg);text-align:center">
+          <button class="btn btn-secondary" onclick="enterManualMode()">✏️ 수동으로 조정</button>
+        </div>
+      `;
+    }
+
+    async function autoTeam() {
+      const teamCount = parseInt(document.getElementById('teamCount').value);
+      if (!confirm(`${teamCount}개 팀으로 자동 편성하시겠습니까?\n기존 팀 편성은 초기화됩니다.`)) return;
+
+      const res = await API.post('/api/teams/auto', { course_id: courseId, team_count: teamCount });
+      if (res && res.success) {
+        Toast.success(res.message);
+        await loadTeams();
+      } else {
+        Toast.error((res && res.message) || '팀 편성 실패');
+      }
+    }
+
+    async function resetTeams() {
+      if (!confirm('팀 편성을 초기화하시겠습니까?')) return;
+      const res = await API.delete(`/api/teams/${courseId}/all`);
+      if (res && res.success) {
+        Toast.success('팀 편성이 초기화되었습니다.');
+        teamsData = [];
+        renderTeams();
+      }
+    }
+
+    // ── 수동 편성 ──────────────────────────────────────
+
+    async function enterManualMode() {
+      if (!courseId) return;
+
+      // 학생 목록 로드
+      const res = await API.get(`/api/students?course_id=${courseId}`);
+      if (!res || !res.success) { Toast.error('학생 목록을 불러올 수 없습니다.'); return; }
+      allStudents = res.data;
+
+      if (allStudents.length === 0) { Toast.error('등록된 학생이 없습니다.'); return; }
+
+      const count = parseInt(document.getElementById('teamCount').value);
+      selectedEnrollmentId = null;
+
+      // 기존 팀이 있으면 그 구성에서 시작, 없으면 빈 팀 생성
+      if (teamsData.length > 0) {
+        manualTeams = teamsData.map(t => ({
+          name: t.name,
+          members: (t.memberDetails || []).map(m => ({
+            enrollmentId: m.enrollment_id,
+            name: m.name,
+            achievement: m.achievement || 0,
+          })),
+        }));
+        // 팀 수가 다르면 조정
+        while (manualTeams.length < count) {
+          manualTeams.push({ name: teamLabel(manualTeams.length), members: [] });
+        }
+      } else {
+        manualTeams = Array.from({ length: count }, (_, i) => ({
+          name: teamLabel(i),
+          members: [],
+        }));
+      }
+
+      renderManualMode();
+    }
+
+    function teamLabel(idx) {
+      // A팀~Z팀, 이후 AA팀...
+      if (idx < 26) return String.fromCharCode(65 + idx) + '팀';
+      return String.fromCharCode(65 + Math.floor(idx / 26) - 1) + String.fromCharCode(65 + idx % 26) + '팀';
+    }
+
+    function renderManualMode() {
+      const assignedIds = new Set(manualTeams.flatMap(t => t.members.map(m => m.enrollmentId)));
+      const unassigned = allStudents.filter(s => !assignedIds.has(s.enrollment_id));
+
+      const container = document.getElementById('teamsContainer');
+      container.innerHTML = `
+        <div class="manual-mode-bar">
+          <span class="text-sub">
+            ${selectedEnrollmentId
+              ? '팀 카드를 클릭해서 배정하세요.'
+              : `미배정 ${unassigned.length}명 | 학생 선택 후 팀 카드를 클릭하면 배정됩니다.`}
+          </span>
+          <div class="flex gap-sm">
+            <button class="btn btn-secondary" onclick="cancelManual()">취소</button>
+            <button class="btn btn-primary" onclick="saveManual()">저장</button>
+          </div>
+        </div>
+        <div class="manual-layout">
+          <div class="pool-panel">
+            <div class="panel-title">미배정 (${unassigned.length}명)</div>
+            <div class="pool-chips">
+              ${unassigned.length === 0
+                ? '<p class="text-sub" style="font-size:12px;padding:8px">모두 배정됨</p>'
+                : unassigned.map(s => `
+                    <div class="pool-chip ${selectedEnrollmentId === s.enrollment_id ? 'selected' : ''}"
+                         onclick="selectStudent(${s.enrollment_id})">
+                      <span class="member-name">${escHtml(s.name)}</span>
+                      <span class="member-score">${fmtPct(s.achievement)}</span>
+                    </div>
+                  `).join('')}
+            </div>
+          </div>
+          <div class="manual-teams-grid">
+            ${manualTeams.map((team, idx) => {
+              const avg = team.members.length > 0
+                ? Math.round(team.members.reduce((s, m) => s + m.achievement, 0) / team.members.length)
+                : 0;
+              return `
+                <div class="manual-team-card ${selectedEnrollmentId ? 'droppable' : ''}"
+                     onclick="assignToTeam(${idx})">
+                  <div class="team-header">${escHtml(team.name)}</div>
+                  <div class="team-body">
+                    ${team.members.map(m => `
+                      <div class="manual-member">
+                        <span class="member-name">${escHtml(m.name)}</span>
+                        <div class="flex items-center gap-sm">
+                          <span class="member-score">${fmtPct(m.achievement)}</span>
+                          <button class="btn-remove" title="빼기"
+                                  onclick="event.stopPropagation(); removeFromTeam(${idx}, ${m.enrollmentId})">×</button>
+                        </div>
+                      </div>
+                    `).join('')}
+                    ${team.members.length === 0
+                      ? '<p class="text-sub" style="font-size:12px;text-align:center;padding:8px">클릭하여 배정</p>'
+                      : ''}
+                  </div>
+                  <div class="team-avg">평균: <strong>${fmtPct(avg)}</strong></div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function selectStudent(enrollmentId) {
+      selectedEnrollmentId = selectedEnrollmentId === enrollmentId ? null : enrollmentId;
+      renderManualMode();
+    }
+
+    function assignToTeam(teamIdx) {
+      if (!selectedEnrollmentId) return;
+      const student = allStudents.find(s => s.enrollment_id === selectedEnrollmentId);
+      if (!student) return;
+
+      // 이미 다른 팀에 있으면 먼저 제거
+      manualTeams.forEach(t => {
+        t.members = t.members.filter(m => m.enrollmentId !== selectedEnrollmentId);
+      });
+
+      manualTeams[teamIdx].members.push({
+        enrollmentId: student.enrollment_id,
+        name: student.name,
+        achievement: student.achievement || 0,
+      });
+
+      selectedEnrollmentId = null;
+      renderManualMode();
+    }
+
+    function removeFromTeam(teamIdx, enrollmentId) {
+      manualTeams[teamIdx].members = manualTeams[teamIdx].members.filter(m => m.enrollmentId !== enrollmentId);
+      renderManualMode();
+    }
+
+    async function saveManual() {
+      const res = await API.post('/api/teams/manual', {
+        course_id: courseId,
+        teams: manualTeams.map(t => ({
+          name: t.name,
+          members: t.members.map(m => m.enrollmentId),
+        })),
+      });
+
+      if (res && res.success) {
+        Toast.success('팀 편성이 저장되었습니다.');
+        selectedEnrollmentId = null;
+        await loadTeams();
+      } else {
+        Toast.error((res && res.message) || '저장 실패');
+      }
+    }
+
+    function cancelManual() {
+      selectedEnrollmentId = null;
+      renderTeams();
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

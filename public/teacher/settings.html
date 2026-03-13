@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 설정</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .settings-section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--gap-lg);
+      margin-bottom: var(--gap-lg);
+      max-width: 520px;
+    }
+    .settings-section h2 {
+      font-size: var(--font-sub);
+      font-weight: 700;
+      margin-bottom: var(--gap-md);
+    }
+    .backup-info {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      padding: var(--gap-md);
+      font-size: var(--font-caption);
+      color: var(--text-sub);
+      margin-bottom: var(--gap-md);
+    }
+    .info-box {
+      background: var(--primary-light);
+      border: 1px solid #93c5fd;
+      border-radius: var(--radius-md);
+      padding: var(--gap-md);
+      font-size: var(--font-caption);
+      margin-bottom: var(--gap-md);
+    }
+    .info-box code {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="teacher-layout">
+    <header class="topbar">
+      <button class="btn-hamburger" onclick="toggleSidebar()" title="메뉴 접기/펼치기">☰</button>
+      <div class="topbar-logo">Class<span>On</span></div>
+      <div class="topbar-course" id="courseName">-</div>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+    </header>
+
+    <nav class="sidebar">
+      <div class="sidebar-nav">
+        <a href="/teacher/dashboard.html" class="sidebar-item">📋 과정 관리</a>
+        <a href="/teacher/class.html"     class="sidebar-item">🖥️ 수업 진행</a>
+        <a href="/teacher/students.html"  class="sidebar-item">👥 학생 관리</a>
+        <a href="/teacher/quiz.html"      class="sidebar-item">📝 퀴즈</a>
+        <a href="/teacher/questions.html" class="sidebar-item">📚 문제 은행</a>
+        <a href="/teacher/teams.html"     class="sidebar-item">🏃 팀 편성</a>
+        <a href="/teacher/settings.html"  class="sidebar-item active">⚙️ 설정</a>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <h1 class="page-title">⚙️ 시스템 설정</h1>
+
+      <!-- 접속 정보 -->
+      <div class="settings-section">
+        <h2>📡 접속 정보</h2>
+        <div class="info-box">
+          <div style="margin-bottom:8px">
+            <strong>강사 접속:</strong> <code>http://localhost:3000</code>
+          </div>
+          <div id="studentUrlList">불러오는 중...</div>
+        </div>
+        <p class="text-sub" style="font-size:12px">학생들은 같은 Wi-Fi/네트워크에서 위 학생 접속 주소로 접속합니다.</p>
+      </div>
+
+      <!-- 비밀번호 변경 -->
+      <div class="settings-section">
+        <h2>🔑 비밀번호 변경</h2>
+        <div style="display:flex;flex-direction:column;gap:var(--gap-md)">
+          <div class="form-group">
+            <label class="form-label">현재 비밀번호</label>
+            <input type="password" id="currentPw" class="input" placeholder="현재 비밀번호">
+          </div>
+          <div class="form-group">
+            <label class="form-label">새 비밀번호</label>
+            <input type="password" id="newPw" class="input" placeholder="새 비밀번호 (4자 이상)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">새 비밀번호 확인</label>
+            <input type="password" id="confirmPw" class="input" placeholder="새 비밀번호 재입력">
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="changePassword()">비밀번호 변경</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 만든이 정보 -->
+      <div class="settings-section">
+        <h2>👤 만든이 정보</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:var(--font-body)">
+          <div style="display:flex;align-items:center;gap:var(--gap-md)">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--primary-light);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">👨‍💻</div>
+            <div>
+              <div style="font-size:var(--font-sub);font-weight:700">노진호</div>
+              <div style="color:var(--text-sub);font-size:var(--font-caption)">진현테크 대표</div>
+              <div style="font-size:var(--font-caption);margin-top:2px">
+                <a href="mailto:rhoblack@gmail.com" style="color:var(--primary);text-decoration:none">rhoblack@gmail.com</a>
+              </div>
+            </div>
+            <div style="margin-left:auto">
+              <span style="background:var(--primary);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px">v0.1.19</span>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <div style="font-size:var(--font-caption);font-weight:700;color:var(--text-sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">이력</div>
+            <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px;font-size:var(--font-caption)">
+              <li style="display:flex;gap:6px"><span style="color:var(--text-sub);flex-shrink:0">전</span><span>삼성전자 책임 연구원</span></li>
+              <li style="display:flex;gap:6px"><span style="color:var(--text-sub);flex-shrink:0">전</span><span>대한상공회의소 정규직 교수</span></li>
+              <li style="display:flex;gap:6px"><span style="color:var(--primary);font-weight:700;flex-shrink:0">현</span><span>진현테크 대표 · 시스템 반도체 설계 및 검증, 임베디드 시스템, 전자 분야 실무 교육 강사</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- DB 백업 -->
+      <div class="settings-section">
+        <h2>💾 DB 백업</h2>
+        <div class="backup-info">
+          <div>마지막 백업: <span id="lastBackup">-</span></div>
+          <div>백업 폴더: <span id="backupDir">-</span></div>
+          <div>DB 크기: <span id="dbSize">-</span></div>
+        </div>
+        <button class="btn btn-primary" onclick="doBackup()">💾 지금 백업</button>
+
+        <!-- 백업 파일 목록 -->
+        <div style="margin-top:var(--gap-md)">
+          <div class="form-label" style="margin-bottom:var(--gap-sm)">백업 파일 목록</div>
+          <div id="backupList" class="text-sub" style="font-size:12px">불러오는 중...</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    async function init() {
+      const course = await loadCurrentCourse();
+      if (course) document.getElementById('courseName').textContent = `현재: ${course.name} ${course.cohort}`;
+      await loadSysInfo();
+    }
+
+    async function loadSysInfo() {
+      const res = await API.get('/api/system/info');
+      if (!res || !res.success) return;
+
+      const info = res.data;
+      // 학생 접속 URL 목록 (IP별로 모두 표시)
+      const urlList = document.getElementById('studentUrlList');
+      if (info.ipList && info.ipList.length > 0) {
+        urlList.innerHTML = info.ipList.map(ip => `
+          <div style="margin-top:6px">
+            <strong>학생 접속</strong>
+            <span style="font-size:11px;color:var(--text-sub);margin-left:4px">(${ip.name})</span>:
+            <code style="background:#fff;padding:2px 6px;border-radius:4px;font-family:monospace">
+              http://${ip.address}:3000/student
+            </code>
+          </div>
+        `).join('');
+      } else {
+        urlList.innerHTML = `<div style="margin-top:6px"><strong>학생 접속:</strong> <code style="background:#fff;padding:2px 6px;border-radius:4px;font-family:monospace">${info.studentUrl}</code></div>`;
+      }
+      document.getElementById('lastBackup').textContent =
+        info.lastBackup ? new Date(info.lastBackup).toLocaleString('ko-KR') : '없음';
+      document.getElementById('backupDir').textContent = info.backupDir || '-';
+      document.getElementById('dbSize').textContent = info.dbSize
+        ? (info.dbSize / 1024).toFixed(1) + ' KB' : '-';
+
+      // 백업 목록
+      const listRes = await API.get('/api/system/backup/list');
+      if (listRes && listRes.success) {
+        const files = listRes.data;
+        const el = document.getElementById('backupList');
+        if (files.length === 0) {
+          el.textContent = '백업 파일이 없습니다.';
+        } else {
+          el.innerHTML = files.map(f => `
+            <div style="padding:4px 0;border-bottom:1px solid var(--border)">
+              📄 ${f.name}
+              <span style="float:right">${(f.size/1024).toFixed(1)} KB</span>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    async function changePassword() {
+      const currentPw = document.getElementById('currentPw').value;
+      const newPw     = document.getElementById('newPw').value;
+      const confirmPw = document.getElementById('confirmPw').value;
+
+      if (!currentPw || !newPw || !confirmPw) {
+        Toast.error('모든 항목을 입력해주세요.'); return;
+      }
+      if (newPw !== confirmPw) {
+        Toast.error('새 비밀번호가 일치하지 않습니다.'); return;
+      }
+
+      const res = await API.post('/api/system/change-password', {
+        current_password: currentPw, new_password: newPw, confirm_password: confirmPw,
+      });
+
+      if (res && res.success) {
+        Toast.success('비밀번호가 변경되었습니다.');
+        document.getElementById('currentPw').value = '';
+        document.getElementById('newPw').value = '';
+        document.getElementById('confirmPw').value = '';
+      } else {
+        Toast.error((res && res.message) || '변경 실패');
+      }
+    }
+
+    async function doBackup() {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = '백업 중...';
+
+      const res = await API.post('/api/system/backup');
+
+      if (res && res.success) {
+        Toast.success(`백업 완료: ${res.fileName}`);
+        await loadSysInfo();
+      } else {
+        Toast.error((res && res.message) || '백업 실패');
+      }
+
+      btn.disabled = false;
+      btn.textContent = '💾 지금 백업';
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 시작</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+    }
+
+    .landing-card {
+      background: var(--background);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: var(--gap-xl) var(--gap-xl);
+      width: 90%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: var(--gap-sm);
+    }
+    .logo span { color: var(--primary); }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-bottom: var(--gap-xl);
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-md);
+    }
+
+    .role-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--gap-sm);
+      padding: var(--gap-xl) var(--gap-md);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      cursor: pointer;
+      text-decoration: none;
+      color: var(--text);
+      transition: all .15s;
+    }
+    .role-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+    .role-btn:hover .role-icon { transform: scale(1.1); }
+
+    .role-btn.teacher:hover { border-color: #2563EB; background: #eff6ff; }
+    .role-btn.student:hover  { border-color: #10B981; background: #ecfdf5; }
+
+    .role-icon { font-size: 40px; line-height: 1; transition: transform .15s; }
+
+    .role-label {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .role-desc {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .footer-note {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: var(--gap-sm);
+    }
+  </style>
+</head>
+<body>
+  <div class="landing-card">
+    <div class="logo">Class<span>On</span></div>
+    <div class="subtitle">교실 운영 통합 플랫폼</div>
+
+    <div class="role-grid">
+      <a href="/login" class="role-btn teacher">
+        <span class="role-icon">👩‍🏫</span>
+        <span class="role-label">강사</span>
+        <span class="role-desc">수업 관리</span>
+      </a>
+      <a href="/student" class="role-btn student">
+        <span class="role-icon">🧑‍💻</span>
+        <span class="role-label">학생</span>
+        <span class="role-desc">수업 참여</span>
+      </a>
+    </div>
+
+    <div class="footer-note" id="courseInfo">오늘 수업 과정을 확인하는 중...</div>
+  </div>
+
+  <script>
+    // 오늘 수업 과정 표시
+    fetch('/api/courses-today')
+      .then(r => r.json())
+      .then(res => {
+        const el = document.getElementById('courseInfo');
+        if (res.success && res.data) {
+          el.textContent = `📋 오늘 수업: ${res.data.name} ${res.data.cohort} (${res.data.student_count}명)`;
+        } else {
+          el.textContent = '오늘 지정된 수업이 없습니다.';
+        }
+      })
+      .catch(() => {
+        document.getElementById('courseInfo').textContent = '';
+      });
+  </script>
+</body>
+</html>

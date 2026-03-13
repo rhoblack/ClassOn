@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 학생 관리</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .student-row { cursor: pointer; }
+
+    /* 정렬 가능한 컬럼 헤더 */
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th.sortable:hover { background: var(--surface); }
+    th.sortable .sort-icon { margin-left: 4px; color: var(--text-sub); font-size: 11px; }
+    th.sortable.asc .sort-icon::after  { content: ' ↑'; color: var(--primary); }
+    th.sortable.desc .sort-icon::after { content: ' ↓'; color: var(--primary); }
+
+    /* 학생 추가/수정 모달 */
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap-md);
+    }
+
+    .csv-hint {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--gap-md);
+      font-size: var(--font-caption);
+      color: var(--text-sub);
+    }
+  </style>
+</head>
+<body>
+  <div class="teacher-layout">
+    <header class="topbar">
+      <button class="btn-hamburger" onclick="toggleSidebar()" title="메뉴 접기/펼치기">☰</button>
+      <div class="topbar-logo">Class<span>On</span></div>
+      <div class="topbar-course" id="courseName">-</div>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+    </header>
+
+    <nav class="sidebar">
+      <div class="sidebar-nav">
+        <a href="/teacher/dashboard.html" class="sidebar-item">📋 과정 관리</a>
+        <a href="/teacher/class.html"     class="sidebar-item">🖥️ 수업 진행</a>
+        <a href="/teacher/students.html"  class="sidebar-item active">👥 학생 관리</a>
+        <a href="/teacher/quiz.html"      class="sidebar-item">📝 퀴즈</a>
+        <a href="/teacher/questions.html" class="sidebar-item">📚 문제 은행</a>
+        <a href="/teacher/teams.html"     class="sidebar-item">🏃 팀 편성</a>
+        <a href="/teacher/settings.html"  class="sidebar-item">⚙️ 설정</a>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="flex items-center justify-between" style="margin-bottom:var(--gap-md)">
+        <div class="flex items-center gap-sm" style="gap:12px">
+          <h1 class="page-title" style="margin:0">👥 학생 관리</h1>
+          <span id="pageCourseName" style="font-size:var(--font-body);color:var(--text-sub);font-weight:500"></span>
+        </div>
+        <div class="flex gap-sm">
+          <button class="btn btn-danger" id="deleteSelectedBtn" onclick="deleteSelected()" style="display:none">🗑 선택 삭제 (<span id="selectedCount">0</span>명)</button>
+          <button class="btn btn-secondary" onclick="downloadStudents('csv')">⬇ CSV</button>
+          <button class="btn btn-secondary" onclick="downloadStudents('xlsx')">⬇ 엑셀</button>
+          <button class="btn btn-secondary" onclick="Modal.open('importModal')">📥 CSV 업로드</button>
+          <button class="btn btn-primary" onclick="openAddStudent()">+ 학생 추가</button>
+        </div>
+      </div>
+
+      <!-- 학생 테이블 -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:36px;text-align:center"><input type="checkbox" id="checkAll" onclick="toggleCheckAll(this)"></th>
+              <th style="width:44px;text-align:center;color:var(--text-sub)">#</th>
+              <th class="sortable asc" onclick="sortBy('name')" data-field="name">이름<span class="sort-icon"></span></th>
+              <th class="sortable" onclick="sortBy('gender')" data-field="gender" style="width:60px">성별<span class="sort-icon"></span></th>
+              <th class="sortable" onclick="sortBy('age')" data-field="age" style="width:60px">나이<span class="sort-icon"></span></th>
+              <th class="sortable" onclick="sortBy('school')" data-field="school">학교<span class="sort-icon"></span></th>
+              <th class="sortable" onclick="sortBy('major')" data-field="major">전공<span class="sort-icon"></span></th>
+              <th class="sortable" onclick="sortBy('achievement')" data-field="achievement">성취도<span class="sort-icon"></span></th>
+              <th style="width:80px">퀴즈</th>
+              <th class="sortable" onclick="sortBy('attendance_rate')" data-field="attendance_rate" style="width:80px">출석<span class="sort-icon"></span></th>
+              <th style="width:60px">메모</th>
+              <th style="width:60px">관리</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody">
+            <tr><td colspan="12" class="text-sub" style="text-align:center;padding:24px">불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- 학생 추가/수정 모달 -->
+  <div class="modal-overlay" id="studentModal">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <div class="modal-title" id="studentModalTitle">학생 추가</div>
+        <button class="modal-close" onclick="Modal.close('studentModal')">✕</button>
+      </div>
+      <div class="modal-grid">
+        <div class="form-group">
+          <label class="form-label">이름 *</label>
+          <input type="text" id="sName" class="input" placeholder="홍길동">
+        </div>
+        <div class="form-group">
+          <label class="form-label">성별</label>
+          <select id="sGender" class="select">
+            <option value="">선택</option>
+            <option value="남">남</option>
+            <option value="여">여</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">나이</label>
+          <input type="number" id="sAge" class="input" placeholder="25" min="15" max="99">
+        </div>
+        <div class="form-group">
+          <label class="form-label">전화번호</label>
+          <input type="tel" id="sPhone" class="input" placeholder="010-0000-0000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">학교</label>
+          <input type="text" id="sSchool" class="input" placeholder="○○대학교">
+        </div>
+        <div class="form-group">
+          <label class="form-label">전공</label>
+          <input type="text" id="sMajor" class="input" placeholder="전자공학과">
+        </div>
+      </div>
+      <input type="hidden" id="editStudentId">
+      <input type="hidden" id="editEnrollmentId">
+      <div class="flex gap-sm" style="justify-content:flex-end;margin-top:var(--gap-md)">
+        <button class="btn btn-secondary" onclick="Modal.close('studentModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveStudent()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSV 업로드 모달 -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">📥 학생 CSV/엑셀 업로드</div>
+        <button class="modal-close" onclick="Modal.close('importModal')">✕</button>
+      </div>
+      <div class="csv-hint" style="margin-bottom:var(--gap-md)">
+        <strong>파일 형식:</strong> CSV 또는 엑셀(.xlsx)<br>
+        필수 컬럼: <code>이름</code><br>
+        선택 컬럼: <code>성별, 나이, 학교, 전공, 전화번호</code>
+      </div>
+      <div class="form-group" style="margin-bottom:var(--gap-md)">
+        <label class="form-label">파일 선택</label>
+        <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" class="input">
+      </div>
+      <div class="flex gap-sm" style="justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="Modal.close('importModal')">취소</button>
+        <button class="btn btn-primary" onclick="importCsv()">업로드</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메모 모달 -->
+  <div class="modal-overlay" id="memoModal">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <div class="modal-title" id="memoStudentName">강사 메모</div>
+        <button class="modal-close" onclick="Modal.close('memoModal')">✕</button>
+      </div>
+      <textarea id="memoText" class="textarea" style="min-height:120px"></textarea>
+      <input type="hidden" id="memoEnrollmentId">
+      <div class="flex gap-sm" style="justify-content:flex-end;margin-top:var(--gap-md)">
+        <button class="btn btn-secondary" onclick="Modal.close('memoModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveMemo()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let courseId = getCurrentCourseId();
+    let students = [];
+    let sortField = 'name';
+    let sortDir = 'asc';
+
+    async function init() {
+      const course = await loadCurrentCourse();
+      if (course) {
+        document.getElementById('courseName').textContent = `현재: ${course.name} ${course.cohort}`;
+        document.getElementById('pageCourseName').textContent = `— ${course.name} ${course.cohort}`;
+      }
+      await loadStudents();
+    }
+
+    async function loadStudents() {
+      if (!courseId) return;
+      const res = await API.get(`/api/students?course_id=${courseId}&sort=name`);
+      if (!res || !res.success) return;
+      students = res.data;
+      applySort();
+    }
+
+    function sortBy(field) {
+      if (sortField === field) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortField = field;
+        sortDir = 'asc';
+      }
+      applySort();
+    }
+
+    function applySort() {
+      students.sort((a, b) => {
+        let va = a[sortField] ?? '';
+        let vb = b[sortField] ?? '';
+        // 숫자형 필드
+        if (sortField === 'age' || sortField === 'achievement' || sortField === 'attendance_rate') {
+          va = parseFloat(va) || 0;
+          vb = parseFloat(vb) || 0;
+          return sortDir === 'asc' ? va - vb : vb - va;
+        }
+        // 문자열 필드
+        va = String(va).toLowerCase();
+        vb = String(vb).toLowerCase();
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ?  1 : -1;
+        return 0;
+      });
+
+      // 헤더 클래스 업데이트
+      document.querySelectorAll('th.sortable').forEach(th => {
+        th.classList.remove('asc', 'desc');
+        if (th.dataset.field === sortField) {
+          th.classList.add(sortDir);
+        }
+      });
+
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('studentTableBody');
+
+      if (students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-sub" style="text-align:center;padding:24px">등록된 학생이 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = students.map((s, i) => {
+        const achClass = achievementClass(s.achievement);
+
+        return `
+          <tr class="student-row" onclick="openEditStudent(${JSON.stringify(s).replace(/"/g,'&quot;')})">
+            <td style="text-align:center" onclick="event.stopPropagation()">
+              <input type="checkbox" class="row-check" value="${s.id}" onchange="updateSelectedCount()">
+            </td>
+            <td style="text-align:center;color:var(--text-sub);font-size:var(--font-caption)">${i + 1}</td>
+            <td><strong>${escHtml(s.name)}</strong></td>
+            <td>${escHtml(s.gender) || ''}</td>
+            <td>${s.age || ''}</td>
+            <td>${escHtml(s.school) || ''}</td>
+            <td>${escHtml(s.major) || ''}</td>
+            <td>
+              <div class="flex items-center gap-sm">
+                <div style="flex:1;max-width:120px">
+                  <div class="progress-bar">
+                    <div class="progress-fill" style="width:${s.achievement||0}%"></div>
+                  </div>
+                </div>
+                <span class="badge ${achClass}">${fmtPct(s.achievement)}</span>
+              </div>
+            </td>
+            <td>${fmtPct(s.quiz_score)}</td>
+            <td>${fmtPct(s.attendance_rate)}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="openMemo(event, ${s.enrollment_id}, '${escHtml(s.name)}', '${escHtml(s.memo || '')}')">📝</button>
+            </td>
+            <td>
+              <button class="btn btn-danger btn-sm" onclick="deleteStudent(event, ${s.id})">삭제</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openAddStudent() {
+      document.getElementById('studentModalTitle').textContent = '학생 추가';
+      document.getElementById('sName').value = '';
+      document.getElementById('sGender').value = '';
+      document.getElementById('sAge').value = '';
+      document.getElementById('sPhone').value = '';
+      document.getElementById('sSchool').value = '';
+      document.getElementById('sMajor').value = '';
+      document.getElementById('editStudentId').value = '';
+      document.getElementById('editEnrollmentId').value = '';
+      Modal.open('studentModal');
+    }
+
+    function openEditStudent(s) {
+      document.getElementById('studentModalTitle').textContent = '학생 정보 수정';
+      document.getElementById('sName').value = s.name || '';
+      document.getElementById('sGender').value = s.gender || '';
+      document.getElementById('sAge').value = s.age || '';
+      document.getElementById('sPhone').value = s.phone || '';
+      document.getElementById('sSchool').value = s.school || '';
+      document.getElementById('sMajor').value = s.major || '';
+      document.getElementById('editStudentId').value = s.id;
+      document.getElementById('editEnrollmentId').value = s.enrollment_id;
+      Modal.open('studentModal');
+    }
+
+    async function saveStudent() {
+      const id = document.getElementById('editStudentId').value;
+      const data = {
+        name:    document.getElementById('sName').value.trim(),
+        gender:  document.getElementById('sGender').value,
+        age:     document.getElementById('sAge').value || null,
+        phone:   document.getElementById('sPhone').value.trim(),
+        school:  document.getElementById('sSchool').value.trim(),
+        major:   document.getElementById('sMajor').value.trim(),
+        course_id: courseId,
+      };
+
+      if (!data.name) { Toast.error('이름은 필수입니다.'); return; }
+
+      let res;
+      if (id) {
+        res = await API.put(`/api/students/${id}`, data);
+      } else {
+        res = await API.post('/api/students', data);
+      }
+
+      if (res && res.success) {
+        Toast.success(id ? '학생 정보가 수정되었습니다.' : '학생이 추가되었습니다.');
+        Modal.close('studentModal');
+        loadStudents();
+      } else {
+        Toast.error((res && res.message) || '저장 실패');
+      }
+    }
+
+    async function deleteStudent(e, id) {
+      e.stopPropagation();
+      if (!confirm('이 학생을 삭제하시겠습니까?')) return;
+      const res = await API.delete(`/api/students/${id}`);
+      if (res && res.success) {
+        Toast.success('삭제되었습니다.');
+        loadStudents();
+      }
+    }
+
+    function openMemo(e, enrollmentId, name, memo) {
+      e.stopPropagation();
+      document.getElementById('memoStudentName').textContent = `${name} — 강사 메모`;
+      document.getElementById('memoText').value = memo;
+      document.getElementById('memoEnrollmentId').value = enrollmentId;
+      Modal.open('memoModal');
+    }
+
+    async function saveMemo() {
+      const enrollmentId = document.getElementById('memoEnrollmentId').value;
+      const memo = document.getElementById('memoText').value;
+      const res = await API.put(`/api/enrollments/${enrollmentId}/memo`, { memo });
+      if (res && res.success) {
+        Toast.success('메모 저장됨');
+        Modal.close('memoModal');
+        loadStudents();
+      }
+    }
+
+    async function importCsv() {
+      const file = document.getElementById('csvFile').files[0];
+      if (!file) { Toast.error('파일을 선택해주세요.'); return; }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('course_id', courseId);
+
+      const res = await API.upload('/api/students/import-csv', formData);
+      if (res && res.success) {
+        Toast.success(res.message);
+        Modal.close('importModal');
+        loadStudents();
+      } else {
+        Toast.error((res && res.message) || '업로드 실패');
+      }
+    }
+
+    function downloadStudents(format) {
+      if (!courseId) { Toast.error('과정을 먼저 선택해주세요.'); return; }
+      window.location.href = `/api/students/export?course_id=${courseId}&format=${format}`;
+    }
+
+    function toggleCheckAll(cb) {
+      document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      const checked = document.querySelectorAll('.row-check:checked');
+      const btn = document.getElementById('deleteSelectedBtn');
+      document.getElementById('selectedCount').textContent = checked.length;
+      btn.style.display = checked.length > 0 ? '' : 'none';
+      // 전체선택 체크박스 상태 동기화
+      const all = document.querySelectorAll('.row-check');
+      document.getElementById('checkAll').indeterminate = checked.length > 0 && checked.length < all.length;
+      document.getElementById('checkAll').checked = all.length > 0 && checked.length === all.length;
+    }
+
+    async function deleteSelected() {
+      const ids = [...document.querySelectorAll('.row-check:checked')].map(c => parseInt(c.value));
+      if (ids.length === 0) return;
+      if (!confirm(`선택한 ${ids.length}명을 삭제하시겠습니까?`)) return;
+
+      let failCount = 0;
+      for (const id of ids) {
+        const res = await API.delete(`/api/students/${id}`);
+        if (!res || !res.success) failCount++;
+      }
+
+      if (failCount === 0) {
+        Toast.success(`${ids.length}명이 삭제되었습니다.`);
+      } else {
+        Toast.error(`${failCount}명 삭제 실패`);
+      }
+      document.getElementById('checkAll').checked = false;
+      loadStudents();
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

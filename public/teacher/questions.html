@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassOn — 문제 은행</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .filter-bar {
+      display: flex;
+      gap: var(--gap-sm);
+      margin-bottom: var(--gap-md);
+      align-items: center;
+    }
+    .question-list-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--gap-sm);
+      padding: 12px var(--gap-md);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--gap-sm);
+      transition: all .15s;
+    }
+    .question-list-item:hover { border-color: var(--primary); }
+    .question-text { flex: 1; font-size: var(--font-body); }
+    .question-meta { font-size: var(--font-caption); color: var(--text-sub); }
+    .q-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="teacher-layout">
+    <header class="topbar">
+      <button class="btn-hamburger" onclick="toggleSidebar()" title="메뉴 접기/펼치기">☰</button>
+      <div class="topbar-logo">Class<span>On</span></div>
+      <div class="topbar-course" id="courseName">-</div>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+    </header>
+
+    <nav class="sidebar">
+      <div class="sidebar-nav">
+        <a href="/teacher/dashboard.html" class="sidebar-item">📋 과정 관리</a>
+        <a href="/teacher/class.html"     class="sidebar-item">🖥️ 수업 진행</a>
+        <a href="/teacher/students.html"  class="sidebar-item">👥 학생 관리</a>
+        <a href="/teacher/quiz.html"      class="sidebar-item">📝 퀴즈</a>
+        <a href="/teacher/questions.html" class="sidebar-item active">📚 문제 은행</a>
+        <a href="/teacher/teams.html"     class="sidebar-item">🏃 팀 편성</a>
+        <a href="/teacher/settings.html"  class="sidebar-item">⚙️ 설정</a>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="flex items-center justify-between" style="margin-bottom:var(--gap-md)">
+        <h1 class="page-title" style="margin:0">📚 문제 은행</h1>
+        <div class="flex gap-sm">
+          <a href="/api/questions/export-template" class="btn btn-secondary btn-sm">📥 엑셀 양식</a>
+          <button class="btn btn-secondary" onclick="Modal.open('importQModal')">📤 엑셀 업로드</button>
+          <button class="btn btn-primary" onclick="openAddQuestion()">+ 문제 추가</button>
+        </div>
+      </div>
+
+      <!-- 필터 바 -->
+      <div class="filter-bar">
+        <select id="filterSubject" class="select" style="width:160px" onchange="loadChapters(); loadQuestions()">
+          <option value="">전체 과목</option>
+        </select>
+        <select id="filterChapter" class="select" style="width:160px" onchange="loadQuestions()">
+          <option value="">전체 챕터</option>
+        </select>
+        <span class="text-sub" id="questionCount" style="margin-left:auto">0문제</span>
+      </div>
+
+      <!-- 문제 목록 -->
+      <div id="questionList">
+        <p class="text-sub">불러오는 중...</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- 문제 추가/수정 모달 -->
+  <div class="modal-overlay" id="questionModal">
+    <div class="modal" style="max-width:540px">
+      <div class="modal-header">
+        <div class="modal-title" id="qModalTitle">문제 추가</div>
+        <button class="modal-close" onclick="Modal.close('questionModal')">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--gap-md)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--gap-md)">
+          <div class="form-group">
+            <label class="form-label">과목 *</label>
+            <input type="text" id="qSubject" class="input" placeholder="디지털회로설계" list="subjectList">
+            <datalist id="subjectList"></datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">챕터 *</label>
+            <input type="text" id="qChapter" class="input" placeholder="챕터1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">유형 *</label>
+            <select id="qType" class="select" onchange="updateTypeUI()">
+              <option value="ox">OX 퀴즈</option>
+              <option value="4choice">4지선다</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">문제 *</label>
+          <textarea id="qQuestion" class="textarea"></textarea>
+        </div>
+
+        <div id="qOptionsSection">
+          <label class="form-label" style="margin-bottom:var(--gap-sm)">보기</label>
+          <div style="display:flex;flex-direction:column;gap:var(--gap-sm)">
+            <div class="flex gap-sm items-center">
+              <span style="width:20px;font-weight:700">A</span>
+              <input type="text" id="qOptA" class="input" placeholder="보기 A">
+            </div>
+            <div class="flex gap-sm items-center">
+              <span style="width:20px;font-weight:700">B</span>
+              <input type="text" id="qOptB" class="input" placeholder="보기 B">
+            </div>
+            <div class="flex gap-sm items-center">
+              <span style="width:20px;font-weight:700">C</span>
+              <input type="text" id="qOptC" class="input" placeholder="보기 C">
+            </div>
+            <div class="flex gap-sm items-center">
+              <span style="width:20px;font-weight:700">D</span>
+              <input type="text" id="qOptD" class="input" placeholder="보기 D">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">정답 *</label>
+          <input type="text" id="qAnswer" class="input" placeholder="OX: O 또는 X  /  4지선다: A, B, C, D">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">해설</label>
+          <textarea id="qExplanation" class="textarea" style="min-height:60px"></textarea>
+        </div>
+
+        <input type="hidden" id="editQuestionId">
+        <div class="flex gap-sm" style="justify-content:flex-end">
+          <button class="btn btn-secondary" onclick="Modal.close('questionModal')">취소</button>
+          <button class="btn btn-primary" onclick="saveQuestion()">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 엑셀 업로드 모달 -->
+  <div class="modal-overlay" id="importQModal">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <div class="modal-title">📤 문제 엑셀 업로드</div>
+        <button class="modal-close" onclick="Modal.close('importQModal')">✕</button>
+      </div>
+      <p class="text-sub" style="margin-bottom:var(--gap-md);font-size:12px">
+        양식 파일을 먼저 다운로드해서 작성 후 업로드해주세요.
+      </p>
+      <div class="form-group" style="margin-bottom:var(--gap-md)">
+        <label class="form-label">파일 선택</label>
+        <input type="file" id="qFile" accept=".xlsx,.xls" class="input">
+      </div>
+      <div class="flex gap-sm" style="justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="Modal.close('importQModal')">취소</button>
+        <button class="btn btn-primary" onclick="importQuestions()">업로드</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let courseId = getCurrentCourseId();
+    let allQuestions = [];
+
+    async function init() {
+      const course = await loadCurrentCourse();
+      if (course) document.getElementById('courseName').textContent = `현재: ${course.name} ${course.cohort}`;
+      await loadSubjects();
+      await loadQuestions();
+    }
+
+    async function loadSubjects() {
+      if (!courseId) return;
+      const res = await API.get(`/api/questions/subjects?course_id=${courseId}`);
+      if (!res || !res.success) return;
+
+      const filter = document.getElementById('filterSubject');
+      const datalist = document.getElementById('subjectList');
+      const options = res.data.map(s => `<option value="${escHtml(s)}">`).join('');
+      datalist.innerHTML = options;
+
+      filter.innerHTML = '<option value="">전체 과목</option>' +
+        res.data.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+    }
+
+    async function loadChapters() {
+      const subject = document.getElementById('filterSubject').value;
+      const select = document.getElementById('filterChapter');
+      if (!subject) { select.innerHTML = '<option value="">전체 챕터</option>'; return; }
+
+      const res = await API.get(`/api/questions/chapters?course_id=${courseId}&subject=${encodeURIComponent(subject)}`);
+      if (!res || !res.success) return;
+
+      select.innerHTML = '<option value="">전체 챕터</option>' +
+        res.data.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    }
+
+    async function loadQuestions() {
+      if (!courseId) return;
+      const subject = document.getElementById('filterSubject').value;
+      const chapter = document.getElementById('filterChapter').value;
+
+      const params = new URLSearchParams({ course_id: courseId });
+      if (subject) params.set('subject', subject);
+      if (chapter) params.set('chapter', chapter);
+
+      const res = await API.get(`/api/questions?${params}`);
+      if (!res || !res.success) return;
+
+      allQuestions = res.data;
+      document.getElementById('questionCount').textContent = `${allQuestions.length}문제`;
+      renderQuestions();
+    }
+
+    function renderQuestions() {
+      const container = document.getElementById('questionList');
+      if (allQuestions.length === 0) {
+        container.innerHTML = '<p class="text-sub">문제가 없습니다. 문제를 추가해보세요.</p>';
+        return;
+      }
+
+      container.innerHTML = allQuestions.map(q => `
+        <div class="question-list-item">
+          <span class="badge badge-${q.type === 'ox' ? 'green' : 'blue'}" style="flex-shrink:0">${q.type === 'ox' ? 'OX' : '4지'}</span>
+          <div style="flex:1">
+            <div class="question-text">${escHtml(q.question)}</div>
+            <div class="question-meta">${escHtml(q.subject)} / ${escHtml(q.chapter)} · 정답: <strong>${q.answer}</strong></div>
+          </div>
+          <div class="q-actions">
+            <button class="btn btn-secondary btn-sm" onclick="openEditQuestion(${JSON.stringify(q).replace(/"/g,'&quot;')})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${q.id})">삭제</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openAddQuestion() {
+      document.getElementById('qModalTitle').textContent = '문제 추가';
+      document.getElementById('editQuestionId').value = '';
+      document.getElementById('qSubject').value = '';
+      document.getElementById('qChapter').value = '';
+      document.getElementById('qType').value = 'ox';
+      document.getElementById('qQuestion').value = '';
+      document.getElementById('qAnswer').value = '';
+      document.getElementById('qExplanation').value = '';
+      ['A','B','C','D'].forEach(l => document.getElementById(`qOpt${l}`).value = '');
+      updateTypeUI();
+      Modal.open('questionModal');
+    }
+
+    function openEditQuestion(q) {
+      document.getElementById('qModalTitle').textContent = '문제 수정';
+      document.getElementById('editQuestionId').value = q.id;
+      document.getElementById('qSubject').value = q.subject || '';
+      document.getElementById('qChapter').value = q.chapter || '';
+      document.getElementById('qType').value = q.type || 'ox';
+      document.getElementById('qQuestion').value = q.question || '';
+      document.getElementById('qAnswer').value = q.answer || '';
+      document.getElementById('qExplanation').value = q.explanation || '';
+
+      if (q.options && q.options.length === 4) {
+        ['A','B','C','D'].forEach((l, i) => {
+          document.getElementById(`qOpt${l}`).value = q.options[i] || '';
+        });
+      }
+      updateTypeUI();
+      Modal.open('questionModal');
+    }
+
+    function updateTypeUI() {
+      const type = document.getElementById('qType').value;
+      document.getElementById('qOptionsSection').style.display = type === '4choice' ? 'block' : 'none';
+    }
+
+    async function saveQuestion() {
+      const id = document.getElementById('editQuestionId').value;
+      const type = document.getElementById('qType').value;
+
+      let options = null;
+      if (type === '4choice') {
+        options = ['A','B','C','D'].map(l => document.getElementById(`qOpt${l}`).value.trim());
+      }
+
+      const data = {
+        course_id: courseId,
+        subject:    document.getElementById('qSubject').value.trim(),
+        chapter:    document.getElementById('qChapter').value.trim(),
+        type,
+        question:   document.getElementById('qQuestion').value.trim(),
+        options,
+        answer:     document.getElementById('qAnswer').value.trim().toUpperCase(),
+        explanation: document.getElementById('qExplanation').value.trim(),
+      };
+
+      if (!data.subject || !data.chapter || !data.question || !data.answer) {
+        Toast.error('필수 항목을 입력해주세요.'); return;
+      }
+
+      const res = id
+        ? await API.put(`/api/questions/${id}`, data)
+        : await API.post('/api/questions', data);
+
+      if (res && res.success) {
+        Toast.success(id ? '수정되었습니다.' : '문제가 추가되었습니다.');
+        Modal.close('questionModal');
+        await loadSubjects();
+        await loadQuestions();
+      } else {
+        Toast.error((res && res.message) || '저장 실패');
+      }
+    }
+
+    async function deleteQuestion(id) {
+      if (!confirm('이 문제를 삭제하시겠습니까?')) return;
+      const res = await API.delete(`/api/questions/${id}`);
+      if (res && res.success) {
+        Toast.success('삭제되었습니다.');
+        loadQuestions();
+      }
+    }
+
+    async function importQuestions() {
+      const file = document.getElementById('qFile').files[0];
+      if (!file) { Toast.error('파일을 선택해주세요.'); return; }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('course_id', courseId);
+
+      const res = await API.upload('/api/questions/import-excel', formData);
+      if (res && res.success) {
+        Toast.success(res.message);
+        Modal.close('importQModal');
+        await loadSubjects();
+        await loadQuestions();
+      } else {
+        Toast.error((res && res.message) || '업로드 실패');
+      }
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>
