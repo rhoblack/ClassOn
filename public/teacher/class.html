@@ -12,8 +12,8 @@
 
     .class-layout {
       display: grid;
-      grid-template-columns: 200px 1fr 280px;
-      grid-template-rows: 56px 1fr;
+      grid-template-columns: 200px 1fr;
+      grid-template-rows: 56px 1fr auto;
       height: 100vh;
       transition: grid-template-columns .25s ease;
     }
@@ -40,9 +40,24 @@
       background: var(--surface);
       padding: var(--gap-md) 0;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .class-sidebar .sidebar-nav {
+      flex: 0 0 auto;
+      padding-bottom: var(--gap-md);
+      border-bottom: 1px solid var(--border);
+    }
+    .class-sidebar .sidebar-stats {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--gap-md) 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap-md);
     }
     .class-layout.sidebar-collapsed {
-      grid-template-columns: 0 1fr 280px;
+      grid-template-columns: 0 1fr;
     }
 
     /* 교실 레이아웃 영역 */
@@ -148,39 +163,33 @@
       flex-shrink: 0;
     }
 
-    /* 우측 패널 */
-    .right-panel {
-      border-left: 1px solid var(--border);
-      background: var(--background);
-      display: flex;
-      flex-direction: column;
-      overflow: visible;
-      position: relative;
+    /* 접속 현황 패널 (숨김) */
+    .connected-panel {
+      display: none;
     }
 
-    /* 우측 패널 좌측 리사이즈 핸들 */
+    /* 하단 패널 (숨김) */
+    .right-panel {
+      display: none;
+    }
+
+    /* 우측 패널 리사이즈 핸들 (숨김 - 하단 패널로 이동되어 필요 없음) */
     .right-panel-resize {
-      position: absolute;
-      top: 0; left: 0;
-      width: 6px; height: 100%;
-      cursor: ew-resize;
-      z-index: 30;
+      display: none;
     }
-    .right-panel-resize::before {
-      content: '';
-      position: absolute;
-      left: 2px; top: 0;
-      width: 2px; height: 100%;
-      background: var(--primary);
-      opacity: 0;
-      transition: opacity .15s;
-    }
-    .right-panel-resize:hover::before,
-    .right-panel-resize.active::before { opacity: 1; }
 
     .panel-section {
       padding: var(--gap-sm) var(--gap-md);
-      border-bottom: 1px solid var(--border);
+      border-bottom: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      overflow-y: auto;
+      max-height: 200px;
+    }
+    .right-panel .panel-section:last-child {
+      max-height: none;
+      flex: 1;
     }
 
     .panel-section-title {
@@ -304,6 +313,24 @@
       font-variant-numeric: tabular-nums;
     }
 
+    /* 사이드바 통계 항목 */
+    .sidebar-stat-item {
+      padding: 0 var(--gap-md) var(--gap-sm);
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-stat-item:last-child {
+      border-bottom: none;
+    }
+    .sidebar-stat-title {
+      font-size: var(--font-caption);
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     /* 공지 모달 */
     .link-input-row {
       display: grid;
@@ -328,7 +355,7 @@
         <button class="btn btn-secondary btn-sm" onclick="Modal.open('noticeModal')">📣 공지</button>
         <button class="btn btn-secondary btn-sm" onclick="toggleLock()" id="lockBtn">🔓 수정모드</button>
         <button class="btn btn-secondary btn-sm" onclick="Modal.open('buttonSetModal')">🎛️ 버튼설정 <span id="activeButtonSetName" style="font-weight:600;color:var(--primary)"></span></button>
-        <button class="btn btn-secondary btn-sm" onclick="confirmClearAll()" style="border-color:#94a3b8;color:#64748b">🗑️ 전체초기화</button>
+        <button class="btn btn-secondary btn-sm" onclick="confirmClearAll()" style="border-color:#94a3b8;color:#64748b">🗑️ 상태초기화</button>
         <a href="/teacher/dashboard.html" class="btn btn-secondary btn-sm">← 나가기</a>
       </div>
     </header>
@@ -343,6 +370,40 @@
         <a href="/teacher/questions.html" class="sidebar-item">📚 문제 은행</a>
         <a href="/teacher/teams.html"     class="sidebar-item">🏃 팀 편성</a>
         <a href="/teacher/settings.html"  class="sidebar-item">⚙️ 설정</a>
+      </div>
+
+      <!-- 통계 섹션 -->
+      <div class="sidebar-stats">
+        <!-- 접속 현황 -->
+        <div class="sidebar-stat-item">
+          <div class="sidebar-stat-title">접속현황</div>
+          <div class="connected-count" id="connectedCount" style="font-size:24px">0</div>
+          <div class="text-sub" style="font-size:11px" id="totalCount">/ 0명 등록</div>
+        </div>
+
+        <!-- 피드백 현황 -->
+        <div class="sidebar-stat-item">
+          <div class="sidebar-stat-title">피드백 현황</div>
+          <div id="sidebarStatsContainer" style="font-size:12px">
+            <div class="text-sub">피드백 없음</div>
+          </div>
+        </div>
+
+        <!-- 질문 -->
+        <div class="sidebar-stat-item">
+          <div class="sidebar-stat-title">질문 <span id="questionCount" class="badge badge-blue" style="font-size:10px">0</span></div>
+          <div id="sidebarQuestionsContainer" style="font-size:12px">
+            <div class="text-sub">없음</div>
+          </div>
+        </div>
+
+        <!-- 도움 요청 -->
+        <div class="sidebar-stat-item">
+          <div class="sidebar-stat-title">도움 요청</div>
+          <div id="sidebarHelpContainer" style="font-size:12px">
+            <div class="text-sub">없음</div>
+          </div>
+        </div>
       </div>
     </nav>
 
@@ -361,16 +422,16 @@
       </div>
     </div>
 
-    <!-- 우측 패널 -->
+    <!-- 접속 현황 (범례 아래) -->
+    <div class="connected-panel">
+      <div class="panel-section-title">접속 현황</div>
+      <div class="connected-count" id="connectedCount">0</div>
+      <div class="text-sub" style="font-size:12px" id="totalCount">/ 0명 등록</div>
+    </div>
+
+    <!-- 하단 패널 -->
     <aside class="right-panel">
       <div class="right-panel-resize" id="rightPanelResize"></div>
-      <!-- 접속 현황 -->
-      <div class="panel-section">
-        <div class="panel-section-title">접속 현황</div>
-        <div class="connected-count" id="connectedCount">0</div>
-        <div class="text-sub" style="font-size:12px" id="totalCount">/ 0명 등록</div>
-      </div>
-
       <!-- 피드백 통계 -->
       <div class="panel-section">
         <div class="panel-section-title">📊 피드백 현황</div>
@@ -668,13 +729,17 @@
     // ─── 통계 렌더링 ─────────────────────────────────────────
     function renderStats({ stats, total }) {
       const container = document.getElementById('statsContainer');
+      const sidebarContainer = document.getElementById('sidebarStatsContainer');
+
       if (!stats || stats.length === 0) {
-        container.innerHTML = '<div class="text-sub" style="font-size:12px">피드백 없음</div>';
+        const emptyHtml = '<div class="text-sub" style="font-size:12px">피드백 없음</div>';
+        if (container) container.innerHTML = emptyHtml;
+        if (sidebarContainer) sidebarContainer.innerHTML = emptyHtml;
         return;
       }
 
       const totalFb = stats.reduce((sum, s) => sum + s.count, 0);
-      container.innerHTML = stats.map(s => `
+      const statsHtml = stats.map(s => `
         <div class="stat-bar">
           <span class="stat-label">${s.emoji || ''} ${s.label || ''}</span>
           <div class="stat-bar-fill">
@@ -684,6 +749,9 @@
           <span class="stat-pct">${Math.round(s.count/total*100)}%</span>
         </div>
       `).join('');
+
+      if (container) container.innerHTML = statsHtml;
+      if (sidebarContainer) sidebarContainer.innerHTML = statsHtml;
     }
 
     // ─── 익명 질문 로드 ──────────────────────────────────────
@@ -692,26 +760,39 @@
       if (!res || !res.success) return;
 
       const qs = res.data.filter(q => !q.is_checked);
-      document.getElementById('questionCount').textContent = qs.length;
+      const countBadge = document.getElementById('questionCount');
+      if (countBadge) countBadge.textContent = qs.length;
 
       const container = document.getElementById('questionsContainer');
+      const sidebarContainer = document.getElementById('sidebarQuestionsContainer');
+      const emptyHtml = '<div class="text-sub" style="font-size:12px">없음</div>';
+
       if (qs.length === 0) {
-        container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
+        if (container) container.innerHTML = emptyHtml;
+        if (sidebarContainer) sidebarContainer.innerHTML = emptyHtml;
         return;
       }
 
-      container.innerHTML = qs.map(q => `
+      const questionsHtml = qs.map(q => `
         <div class="question-item">
           <span class="question-text"><strong>${escHtml(q.student_name)}</strong>: ${escHtml(q.text)}</span>
           <button class="question-check" title="확인" onclick="checkQuestion(${q.id}, this)">✓</button>
         </div>
       `).join('');
+
+      if (container) container.innerHTML = questionsHtml;
+      if (sidebarContainer) sidebarContainer.innerHTML = questionsHtml;
     }
 
     async function checkQuestion(id, btn) {
       await API.put(`/api/feedback/questions/${id}/check`);
       SocketClient.checkQuestion(id);
       btn.closest('.question-item').remove();
+
+      // 사이드바의 같은 질문도 제거
+      const sidebarBtn = document.querySelector('#sidebarQuestionsContainer button[onclick*="checkQuestion(' + id + ')"]');
+      if (sidebarBtn) sidebarBtn.closest('.question-item').remove();
+
       const cnt = document.getElementById('questionCount');
       cnt.textContent = Math.max(0, parseInt(cnt.textContent) - 1);
     }
@@ -728,18 +809,25 @@
       changed.forEach(eid => updateDeskState(eid));
 
       const container = document.getElementById('helpContainer');
+      const sidebarContainer = document.getElementById('sidebarHelpContainer');
+      const emptyHtml = '<div class="text-sub" style="font-size:12px">없음</div>';
+
       if (res.data.length === 0) {
-        container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
+        if (container) container.innerHTML = emptyHtml;
+        if (sidebarContainer) sidebarContainer.innerHTML = emptyHtml;
         return;
       }
 
-      container.innerHTML = res.data.map((h, i) => `
+      const helpHtml = res.data.map((h, i) => `
         <div class="help-item" id="help_${h.id}">
           <div class="help-num">${i+1}</div>
           <span class="help-name">${escHtml(h.name)}</span>
           <button class="help-done-btn" onclick="helpDone(${h.id}, ${h.enrollment_id})">완료</button>
         </div>
       `).join('');
+
+      if (container) container.innerHTML = helpHtml;
+      if (sidebarContainer) sidebarContainer.innerHTML = helpHtml;
     }
 
     async function helpDone(id, enrollmentId) {
@@ -747,12 +835,16 @@
       SocketClient.helpDone(id);
       helpSet.delete(enrollmentId);
       updateDeskState(enrollmentId);
-      document.getElementById(`help_${id}`)?.remove();
-      // 목록이 비었으면 "없음" 표시
-      const container = document.getElementById('helpContainer');
-      if (!container.querySelector('.help-item')) {
-        container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
-      }
+
+      // 메인 컨테이너와 사이드바에서 모두 제거
+      [document.getElementById('helpContainer'), document.getElementById('sidebarHelpContainer')].forEach(container => {
+        if (!container) return;
+        document.getElementById(`help_${id}`)?.remove();
+        // 목록이 비었으면 "없음" 표시
+        if (!container.querySelector('.help-item')) {
+          container.innerHTML = '<div class="text-sub" style="font-size:12px">없음</div>';
+        }
+      });
     }
 
 // ─── 드래그 초기화 (interact.js) ────────────────────────
@@ -1104,17 +1196,19 @@
 
       SocketClient.onQuestionReceived((data) => {
         // 새 질문 추가
-        const container = document.getElementById('questionsContainer');
-        const empty = container.querySelector('.text-sub');
-        if (empty) empty.remove();
+        [document.getElementById('questionsContainer'), document.getElementById('sidebarQuestionsContainer')].forEach(container => {
+          if (!container) return;
+          const empty = container.querySelector('.text-sub');
+          if (empty) empty.remove();
 
-        const item = document.createElement('div');
-        item.className = 'question-item';
-        item.innerHTML = `
-          <span class="question-text"><strong>${escHtml(data.studentName)}</strong>: ${escHtml(data.text)}</span>
-          <button class="question-check" title="확인" onclick="checkQuestion(${data.id}, this)">✓</button>
-        `;
-        container.prepend(item);
+          const item = document.createElement('div');
+          item.className = 'question-item';
+          item.innerHTML = `
+            <span class="question-text"><strong>${escHtml(data.studentName)}</strong>: ${escHtml(data.text)}</span>
+            <button class="question-check" title="확인" onclick="checkQuestion(${data.id}, this)">✓</button>
+          `;
+          container.prepend(item);
+        });
 
         const cnt = document.getElementById('questionCount');
         cnt.textContent = parseInt(cnt.textContent) + 1;
@@ -1125,6 +1219,23 @@
         helpSet.add(data.enrollmentId);
         updateDeskState(data.enrollmentId);
         loadHelpRequests();
+
+        // 사이드바에도 즉시 추가 (리로드 대기 없음)
+        const sidebarContainer = document.getElementById('sidebarHelpContainer');
+        if (sidebarContainer) {
+          const empty = sidebarContainer.querySelector('.text-sub');
+          if (empty) empty.remove();
+
+          const item = document.createElement('div');
+          item.className = 'help-item';
+          item.id = `help_${data.id}`;
+          item.innerHTML = `
+            <div class="help-num">1</div>
+            <span class="help-name">${escHtml(data.name)}</span>
+            <button class="help-done-btn" onclick="helpDone(${data.id}, ${data.enrollmentId})">완료</button>
+          `;
+          sidebarContainer.prepend(item);
+        }
       });
     }
 

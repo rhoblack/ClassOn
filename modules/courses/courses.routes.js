@@ -87,7 +87,36 @@ router.delete('/courses/:id', (req, res) => {
   const existing = db.prepare('SELECT id FROM courses WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ success: false, message: '과정을 찾을 수 없습니다.' });
 
-  db.prepare('DELETE FROM courses WHERE id = ?').run(id);
+  // 트랜잭션으로 관련 데이터 모두 삭제
+  const deleteFunc = db.transaction(() => {
+    // 해당 과정의 모든 enrollments 조회
+    const enrollmentIds = db.prepare('SELECT id FROM enrollments WHERE course_id = ?').all(id).map(e => e.id);
+
+    // enrollments에 연결된 데이터 삭제
+    if (enrollmentIds.length > 0) {
+      const placeholders = enrollmentIds.map(() => '?').join(',');
+      db.prepare(`DELETE FROM attendance WHERE enrollment_id IN (${placeholders})`).run(...enrollmentIds);
+      db.prepare(`DELETE FROM feedback_logs WHERE enrollment_id IN (${placeholders})`).run(...enrollmentIds);
+      db.prepare(`DELETE FROM questions_anon WHERE enrollment_id IN (${placeholders})`).run(...enrollmentIds);
+      db.prepare(`DELETE FROM help_requests WHERE enrollment_id IN (${placeholders})`).run(...enrollmentIds);
+      db.prepare(`DELETE FROM quiz_answers WHERE enrollment_id IN (${placeholders})`).run(...enrollmentIds);
+    }
+
+    // 과정 관련 데이터 삭제
+    db.prepare('DELETE FROM button_sets WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM layouts WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM quizzes WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM quiz_sessions WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM questions WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM teams WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM feedback_clears WHERE course_id = ?').run(id);
+    db.prepare('DELETE FROM enrollments WHERE course_id = ?').run(id);
+
+    // 마지막으로 과정 삭제
+    db.prepare('DELETE FROM courses WHERE id = ?').run(id);
+  });
+
+  deleteFunc();
   res.json({ success: true });
 });
 
