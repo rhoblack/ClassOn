@@ -1,8 +1,12 @@
 node_modules/
 data/
 backup/
+dist/
+app/
 *.db
 *.db-shm
 *.db-wal
 .claude/
 students.csv
+*.log
+server.log

@@ -1,15 +1,16 @@
 @echo off
-title ClassOn Stop
+chcp 65001 >nul
+title ClassOn - Stopping
 
 echo.
 echo  ==============================
-echo    ClassOn Server Stopping...
+echo    ClassOn Server Stopping
 echo  ==============================
 echo.
 
-taskkill /f /im node.exe /fi "WINDOWTITLE eq ClassOn Server" >nul 2>&1
+echo [INFO] Stopping Node.js server...
 taskkill /f /im node.exe >nul 2>&1
 
-echo [INFO] ClassOn server stopped.
+echo [INFO] Done.
 echo.
-timeout /t 2 /nobreak > nul
+timeout /t 2 /nobreak >nul
